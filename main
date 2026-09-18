@@ -1,0 +1,2819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>1v1v1v1 Bracket Generator</title>
+<style>
+:root{--bg:#111827;--panel:#1f2937;--panel2:#273449;--text:#f3f4f6;--muted:#9ca3af;--accent:#60a5fa;--win:#34d399;--lose:#f87171;--line:#4b5563}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font:15px system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{padding:22px 28px;border-bottom:1px solid #374151;background:#0b1220} h1{margin:0 0 5px;font-size:26px} header p{margin:0;color:var(--muted)}
+.controls{display:flex;flex-wrap:wrap;gap:12px;align-items:end;padding:18px 28px;background:#151e2e;position:sticky;top:0;z-index:5}
+.field{display:flex;flex-direction:column;gap:5px}.field label{font-size:12px;color:var(--muted)}
+input,select,button{font:inherit;border:1px solid #4b5563;border-radius:7px;background:#111827;color:var(--text);padding:9px 11px}
+button{cursor:pointer;background:#2563eb;border-color:#3b82f6;font-weight:600}button.secondary{background:#374151;border-color:#4b5563}button.danger{background:#991b1b;border-color:#b91c1c}
+#names{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;padding:18px 28px;max-width:1300px}
+#names input{width:100%}.hidden{display:none!important}
+#status{padding:0 28px 10px;color:var(--muted)}
+.bracket-wrap{overflow:auto;padding:10px 28px 40px}
+.rounds{display:flex;gap:22px;align-items:flex-start;min-width:max-content}
+.round{width:235px}.round h2{font-size:14px;margin:0 0 10px;color:#d1d5db}
+.match{background:var(--panel);border:1px solid #374151;border-radius:9px;margin-bottom:16px;box-shadow:0 4px 12px #0003;overflow:hidden}
+.match-title{font-size:11px;color:var(--muted);padding:7px 9px;background:var(--panel2);border-bottom:1px solid #374151}
+.player{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:8px 9px;border-bottom:1px solid #374151;min-height:39px}
+.player:last-child{border-bottom:0}.player button{padding:5px 8px;font-size:12px;background:#374151;border-color:#4b5563}.player button:hover{background:#4b5563}
+.player.winner{background:#064e3b}.player.loser{background:#450a0a;color:#9ca3af}.player.bye{color:#6b7280;font-style:italic}
+.note{font-size:11px;color:var(--muted);padding:6px 9px;border-top:1px solid #374151}
+.section-title{font-size:18px;margin:22px 28px 5px}
+.champion{margin:12px 28px 25px;padding:15px 18px;border:1px solid #059669;background:#064e3b;border-radius:9px;display:inline-block;font-size:18px;font-weight:700}
+.empty{padding:40px 28px;color:var(--muted)}
+.manual-slot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 9px;border-bottom:1px solid #374151;color:var(--muted)}
+.manual-slot button{padding:5px 8px;font-size:12px}.player-actions{display:flex;gap:5px;align-items:center}.remove-player{background:#991b1b!important;border-color:#b91c1c!important}
+.transfer{margin:6px 9px 9px;width:calc(100% - 18px);font-size:12px}
+.remove-player{width:28px;height:28px;padding:0!important;border-radius:50%!important;background:#991b1b!important;border-color:#b91c1c!important;font-size:18px!important;line-height:1!important}
+.player-actions{display:flex;gap:6px;align-items:center}
+@media(max-width:700px){.controls{padding:14px}.round{width:215px}.bracket-wrap{padding-left:14px}}
+</style>
+
+<style id="v12Enhancements">
+#tournamentName{min-width:180px}
+#saveStatus{font-size:12px;color:#555;align-self:center;white-space:nowrap}
+.match.ready{outline:3px solid #3b82f6;outline-offset:2px}
+.match.ready::before{content:"READY";display:block;font-size:11px;font-weight:700;letter-spacing:.08em;color:#2563eb;margin-bottom:4px}
+.player > span:first-child{cursor:pointer}
+.player > span:first-child:hover{text-decoration:underline}
+#appModal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;display:none;align-items:center;justify-content:center;padding:20px}
+#appModal.open{display:flex}
+#appModal .modal-card{background:#fff;max-width:720px;width:min(720px,95vw);max-height:85vh;overflow:auto;border-radius:12px;padding:20px;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+#appModal h2{margin-top:0}
+#appModal .modal-actions{text-align:right;margin-top:16px}
+#appModal table{width:100%;border-collapse:collapse}
+#appModal th,#appModal td{padding:7px;border-bottom:1px solid #ddd;text-align:left}
+#undoBtn:disabled{opacity:.45;cursor:not-allowed}
+@media print{
+  .controls,#names,#localSaveControls,#saveStatus,#status,#appModal{display:none!important}
+  header{break-after:avoid}
+  #output{width:100%}
+  .match.ready{outline:none}
+  .match.ready::before{display:none}
+}
+</style>
+<style id="promotionFixStyle">
+.promotion-panel{margin:18px 28px;padding:16px;border:1px solid #374151;border-radius:10px;background:var(--panel);color:var(--text)}
+.promotion-panel h3{margin:0 0 8px;color:var(--text)}
+.promotion-panel .note{color:var(--muted)}
+.promotion-player{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid #374151;color:var(--text)}
+.promoted-list{margin:10px 0;padding:8px;background:var(--panel2);border-radius:6px;color:var(--text)}
+</style>
+</head>
+<body>
+<header><h1>1v1v1v1 Tournament Bracket Generator</h1><p>Four-player matches with single elimination or a Second Chance format.</p></header>
+<div class="controls">
+  <div class="field"><label>Tournament Name</label><input id="tournamentName" type="text" placeholder="Tournament"></div>
+  <div class="field"><label>Format</label><select id="format"><option value="single">Single Elimination</option><option value="double">Second Chance (4-player)</option></select></div>
+  <div class="field"><label>Players</label><input id="count" type="number" min="2" max="30" value="16"></div>
+  <button onclick="makeNameFields()">Set Players</button>
+  <button onclick="randomizeNames()" class="secondary">Randomize</button>
+  <button onclick="confirmGenerate()" >Generate Bracket</button>
+  <button onclick="confirmResetTournament()" class="danger">Reset</button>
+</div>
+<div id="names"></div>
+<div id="status"></div>
+<div id="output"><div class="empty">Enter your players and generate a bracket.</div></div>
+
+
+<div id="appModal" aria-hidden="true">
+  <div class="modal-card">
+    <div id="modalContent"></div>
+    <div class="modal-actions"><button type="button" onclick="closeAppModal()">Close</button></div>
+  </div>
+</div>
+<script>
+let names=[], tournament=null;
+
+function makeNameFields(){
+  const n=Math.max(2,Math.min(30,+document.getElementById('count').value||16));
+  document.getElementById('count').value=n;
+  const old=[...document.querySelectorAll('#names input')].map(x=>x.value);
+  document.getElementById('names').innerHTML='';
+  for(let i=0;i<n;i++){
+    const x=document.createElement('input'); x.placeholder=`Player ${i+1}`; x.value=old[i]||`Player ${i+1}`; x.dataset.i=i;
+    document.getElementById('names').appendChild(x);
+  }
+}
+function randomizeNames(){
+  const a=[...document.querySelectorAll('#names input')].map(x=>x.value||x.placeholder);
+  for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}
+  document.querySelectorAll('#names input').forEach((x,i)=>x.value=a[i]);
+}
+function chunk(a,n){let r=[];for(let i=0;i<a.length;i+=n)r.push(a.slice(i,i+n));return r}
+function nextRoundSize(n){return Math.ceil(n/4)}
+function labelRound(i,prefix){return prefix+' Round '+(i+1)}
+
+
+function bracketIsActive(){
+  if(!tournament) return false;
+
+  // Treat any generated/played bracket state as active. This intentionally
+  // includes partially completed brackets so Generate/Reset cannot erase
+  // one by accident.
+  return !!(
+    (tournament.wb && tournament.wb.some(r=>r && r.length)) ||
+    (tournament.lb && tournament.lb.some(r=>r && r.length)) ||
+    (tournament.scPool && tournament.scPool.length) ||
+    (tournament.scWildcards && tournament.scWildcards.length) ||
+    (tournament.scFinalists && tournament.scFinalists.length) ||
+    (tournament.grandFinal && tournament.grandFinal.players && tournament.grandFinal.players.length)
+  );
+}
+
+function confirmGenerate(){
+  if(bracketIsActive()){
+    if(!confirm('Start a new Bracket?')) return;
+  }
+  _generate();
+}
+
+function confirmResetTournament(){
+  if(bracketIsActive()){
+    if(!confirm('Start a new Bracket?')) return;
+  }
+  _resetTournament();
+}
+
+function _generate(){
+  names=[...document.querySelectorAll('#names input')].map((x,i)=>x.value.trim()||`Player ${i+1}`);
+  if(names.length<2){alert('Add at least 2 players.');return}
+  tournament={format:document.getElementById('format').value, names, wb:[], lb:[], final:null, champion:null, unassigned:[], lbMovedToWinners:{}};
+  buildWinnersBracket();
+  if(tournament.format==='double') buildLosersBracket();
+  render();
+}
+function buildWinnersBracket(){
+  const initial=names.map((name,i)=>({id:'p'+i,name,losses:0}));
+  const firstMatchCount=Math.ceil(initial.length/4);
+
+  // Winners Bracket:
+  // Round 1 contains everyone.
+  // Round 2 is ALWAYS exactly two four-player games in double elimination.
+  // The missing Round-2 positions are filled by the first two Losers-Bracket
+  // finalists.
+  let r1=[];
+  for(let mi=0;mi<firstMatchCount;mi++){
+    r1.push({
+      id:`w0m${mi}`,
+      players:initial.slice(mi*4,mi*4+4),
+      winner:null,
+      auto:false
+    });
+  }
+
+  if(tournament.format==='double'){
+    tournament.wb.push(r1);
+    tournament.wb.push([
+      {id:'w1m0',players:[],winner:null,auto:false},
+      {id:'w1m1',players:[],winner:null,auto:false}
+    ]);
+  }else{
+    // Single elimination continues with four-player rounds.
+    tournament.wb.push(r1);
+    let count=firstMatchCount;
+    let round=1;
+    while(count>2){
+      count=Math.ceil(count/4);
+      tournament.wb.push(Array.from({length:count},(_,mi)=>({
+        id:`w${round}m${mi}`,players:[],winner:null,auto:false
+      })));
+      round++;
+    }
+    if(count>1 && tournament.wb.length===1){
+      tournament.wb.push([{id:'w1m0',players:[],winner:null,auto:false}]);
+    }
+  }
+}
+function buildLosersBracket(){ tournament.lb=[]; }
+
+function allWinnersComplete(roundIndex){
+  return tournament.wb[roundIndex] && tournament.wb[roundIndex].every(m=>m.winner);
+}
+function chooseWinner(type,r,m,pidx){
+  const arr=type==='wb'?tournament.wb[r]:tournament.lb[r];
+  const match=arr && arr[m]; if(!match || match.winner) return;
+  const p=match.players[pidx];
+  // Winners Bracket requires 4 players. Second Chance games may have
+  // 2-4 players, so short Second Chance games can still choose a winner.
+  const shortAllowed =
+    type==='lb' ||
+    (type==='wb' && r===0);
+
+  if(!p || (!shortAllowed && match.players.length<4) ||
+     (shortAllowed && match.players.length<2)){
+    alert(shortAllowed
+      ? 'A game needs at least 2 players before choosing a winner.'
+      : 'Every game must have exactly 4 players before choosing a winner.');
+    return;
+  }
+
+  match.winner=p;
+  match.players.forEach((q,i)=>{if(i!==pidx && q) q.losses=(q.losses||0)+1});
+
+  if(type==='wb'){
+    advanceWinners(r);
+  }else{
+    advanceLoserWinner(r,p);
+  }
+  render();
+}
+function advanceWinners(r){
+  if(!allWinnersComplete(r)) return;
+
+  const winners=tournament.wb[r].map(m=>m.winner).filter(Boolean);
+
+  if(tournament.format==='double' && r===0){
+    // Six winners from a 24-player first round, for example, occupy six
+    // of the eight Round-2 positions. The two remaining positions are
+    // reserved for Losers-Bracket finalists.
+    tournament.wb[1].forEach(m=>m.players=[]);
+    winners.forEach(p=>{
+      for(const m of tournament.wb[1]){
+        if(m.players.length<4){
+          m.players.push(p);
+          break;
+        }
+      }
+    });
+    setupLosersFromRound(r);
+    return;
+  }
+
+  if(r+1<tournament.wb.length){
+    winners.forEach(p=>{
+      for(const m of tournament.wb[r+1]){
+        if(!m.winner && m.players.length<4){
+          m.players.push(p);
+          break;
+        }
+      }
+    });
+  }else{
+    tournament.wbChampion=winners[0]||null;
+  }
+
+  if(tournament.format==='double') setupLosersFromRound(r);
+}
+function setupLosersFromRound(r){
+  if(tournament.format!=='double' || r!==0) return;
+  if(!allWinnersComplete(r)) return;
+  if(tournament.lb.length) return;
+
+  const incoming=[];
+  tournament.wb[r].forEach(m=>{
+    (m.players||[]).forEach(p=>{
+      if(p && m.winner!==p) incoming.push(p);
+    });
+  });
+
+  // These are the players available for the two promotion slots.
+  tournament.scPool=incoming.slice();
+  tournament.scWildcards=tournament.scWildcards||[];
+
+  const matchCount=Math.ceil(incoming.length/4);
+  const round1=Array.from({length:matchCount},(_,mi)=>({
+    id:`l0m${mi}`,
+    players:incoming.slice(mi*4,mi*4+4),
+    winner:null,
+    auto:false
+  }));
+
+  tournament.lb.push(round1);
+
+  // Round 2 exists immediately, but remains empty until winners from
+  // Round 1 need somewhere to go.
+  tournament.lb.push([
+    {id:'l1m0',players:[],winner:null,auto:false},
+    {id:'l1m1',players:[],winner:null,auto:false}
+  ]);
+}
+function addLoserStage(incoming){
+  const stage=tournament.lb.length;
+  const groups=chunk(incoming,4);
+  const matches=groups.map((g,i)=>({
+    id:`l${stage}m${i}`,
+    players:g.slice(0,4),
+    winner:null,
+    auto:false
+  }));
+  tournament.lb.push(matches);
+}
+function advanceLoserWinner(r,p){
+  // Loss Round 1 is a staging round. A winner advances to the first
+  // available destination in this order:
+  //   1. Open Winners Round 2 slot.
+  //   2. Open slot in another Loss Round 1 match.
+  //   3. Loss Round 2, but only after every Loss Round 1 match is full
+  //      and has produced a winner.
+  if(r===0){
+    const wb2=tournament.wb[1];
+
+    // Priority 1: fill an open Winners Round 2 position.
+    if(wb2){
+      for(const m of wb2){
+        if(!m.winner && m.players.length<4 && !m.players.some(q=>q&&q.id===p.id)){
+          m.players.push(p);
+          render();
+          return;
+        }
+      }
+    }
+
+    // Priority 2: use an empty position in another Loss Round 1 match.
+    // This is particularly useful when the starting player count does not
+    // divide evenly into four-player games.
+    const round1=tournament.lb[0]||[];
+    for(const m of round1){
+      if(m.players.length<4 && !m.winner && !m.players.some(q=>q&&q.id===p.id)){
+        m.players.push(p);
+        render();
+        return;
+      }
+    }
+
+    // Priority 3: only after Loss Round 1 is completely full and every
+    // Loss Round 1 game has a winner do we place the winner into Loss Round 2.
+    if(round1.length && round1.every(m=>m.players.length===4 && m.winner)){
+      placeLoserRound2Winner(p);
+    }
+    return;
+  }
+
+  // Later Loss Rounds use the same rule: fill the next available slot in
+  // the current Loss Round first, then advance to the next Loss Round when
+  // the current round is completely resolved.
+  const current=tournament.lb[r]||[];
+  const next=tournament.lb[r+1];
+
+  if(next && current.length && current.every(m=>m.players.length===4 && m.winner)){
+    placePlayerInLoserRound(next,p);
+  }
+}
+
+function placeLoserRound2Winner(p){
+  let round2=tournament.lb[1];
+  if(!round2){
+    round2=[
+      {id:'l1m0',players:[],winner:null,auto:false},
+      {id:'l1m1',players:[],winner:null,auto:false}
+    ];
+    tournament.lb[1]=round2;
+  }
+  placePlayerInLoserRound(round2,p);
+}
+
+function placePlayerInLoserRound(round,p){
+  for(const m of round){
+    if(!m.winner && m.players.length<4 && !m.players.some(q=>q&&q.id===p.id)){
+      m.players.push(p);
+      return true;
+    }
+  }
+  return false;
+}
+function setupDoubleIfReady(){
+  // Kept for compatibility; stages are added as WB rounds finish.
+}
+function render(){
+  const out=document.getElementById('output');
+  const displayName=esc(tournament.tournamentName||'Tournament'); let html=`<div class="section-title">${displayName} — Winners Bracket</div><div class="bracket-wrap"><div class="rounds">`;
+  tournament.wb.forEach((matches,r)=>{
+    html+=`<div class="round"><h2>Round ${r+1}</h2>`;
+    matches.forEach((m,mi)=>html+=renderMatch(m,'wb',r,mi));
+    html+='</div>';
+  });
+  html+='</div></div>';
+
+  if(tournament.format==='double'){
+    html+='<div class="section-title">Losers Bracket</div><div class="bracket-wrap"><div class="rounds">';
+    if(!tournament.lb.length){
+      html+='<div class="round"><h2>Loss Round 1</h2><div class="match"><div class="match-title">Waiting for Winners Round 1</div><div class="empty">Losers will enter here when Winners Round 1 is complete.</div></div></div>';
+    }else{
+      tournament.lb.forEach((matches,r)=>{
+        html+=`<div class="round"><h2>Loss Round ${r+1}</h2>`;
+        matches.forEach((m,mi)=>html+=renderMatch(m,'lb',r,mi));
+        html+='</div>';
+      });
+    }
+    html+='</div></div>';
+
+    // Once Winners Round 2 and Losers Round 2 have both produced their
+    // finalists, those four players form the four-player Grand Final.
+    const wb2=tournament.wb[1];
+    const wbFinalists=wb2 ? wb2.map(m=>m.winner).filter(Boolean) : [];
+    const lbFinalists=tournament.lbFinalists||[];
+
+    if(wbFinalists.length===2 && lbFinalists.length===2){
+      tournament.final={
+        players:[...wbFinalists,...lbFinalists],
+        winner:null
+      };
+    }
+
+    html+='<div class="section-title">Grand Final</div><div class="bracket-wrap"><div class="rounds"><div class="round">';
+    if(tournament.final) html+=renderFinal();
+    else html+='<div class="empty">The Grand Final will appear after the Winners and Losers brackets each produce two finalists.</div>';
+    html+='</div></div></div>';
+  }else{
+    const wc=tournament.wbChampion;
+    if(wc) html+=`<div class="champion">🏆 Champion: ${esc(wc.name)}</div>`;
+  }
+
+  out.innerHTML=html;
+  updateStatus();
+}
+function renderMatch(m,type,r,mi){
+  let s=`<div class="match"><div class="match-title">${type==='wb'?'Match':'Loss Match'} ${mi+1}</div>`;
+  const players=m.players||[];
+
+  // Second Chance games may have fewer than four players. Render only
+  // the players that actually belong to the game; no filler slots are needed.
+  const allowShortSecondChance = type==='lb';
+  const slotCount = allowShortSecondChance ? players.length : 4;
+
+  for(let i=0;i<slotCount;i++){
+    const p=players[i];
+
+    if(!p){
+      s+=`<div class="manual-slot">
+        <span>Empty Player Slot ${i+1}</span>
+        <button onclick="addPlayerToSlot('${type}',${r},${mi})">Add Player</button>
+      </div>`;
+      continue;
+    }
+
+    let cls=m.winner===p?'winner':(m.winner&&m.winner!==p?'loser':'');
+    let actions='';
+
+    if(!m.winner && (
+      players.length===4 ||
+      (type==='lb' && players.length>=2)
+    )){
+      actions+=`<button onclick="chooseWinner('${type}',${r},${mi},${i})">Winner</button>`;
+    }
+
+    actions+=`<button class="remove-player" title="Remove player" aria-label="Remove player" onclick="removePlayerFromMatch('${type}',${r},${mi},${i})">×</button>`;
+
+    s+=`<div class="player ${cls}">
+      <span>${esc(p.name)}</span>
+      <span class="player-actions">${actions}</span>
+    </div>`;
+  }
+
+  if(m.winner){
+    s+=`<div class="note">Winner: ${esc(m.winner.name)}</div>`;
+
+    if(type==='lb' && r===1 && !(tournament.lbMovedToWinners||{})[m.winner.id]){
+      s+=`<div class="note">Losers Round 2 finalist.</div>`;
+    }else if(type==='lb' && r===1 && (tournament.lbMovedToWinners||{})[m.winner.id]){
+      s+=`<div class="note">Winner moved to Winners Bracket.</div>`;
+    }
+  }else if(players.length<4 && type!=='lb'){
+    s+=`<div class="note">This match needs ${4-players.length} more player${4-players.length===1?'':'s'}.</div>`;
+  }
+
+  s+='</div>';
+  return s;
+}
+
+function advanceSoloPlayer(type,r,mi){
+  const arr=type==='wb'?tournament.wb[r]:tournament.lb[r];
+  const match=arr&&arr[mi];
+  if(!match || match.winner || match.players.length!==1)return;
+
+  const p=match.players[0];
+  if(!p)return;
+
+  match.winner=p;
+
+  if(type==='wb'){
+    advanceWinners(r);
+  }else{
+    advanceSecondChanceRound(r,p);
+  }
+
+  render();
+}
+
+function addPlayerToSlot(type,r,mi){
+  const arr=type==='wb'?tournament.wb[r]:tournament.lb[r];
+  const match=arr && arr[mi];
+  if(!match || match.winner || match.players.length>=4) return;
+
+  const pool=tournament.unassigned||[];
+
+  if(pool.length){
+    const choices=pool.map((p,i)=>`${i+1}. ${p.name}`).join('\n');
+    const answer=prompt(`Available players:\n\n${choices}\n\nEnter the number to add, or Cancel to leave the slot empty.`);
+    if(answer===null) return;
+
+    const index=Number(answer)-1;
+    if(!Number.isInteger(index) || index<0 || index>=pool.length){
+      alert('Please enter a valid player number.');
+      return;
+    }
+
+    const p=pool.splice(index,1)[0];
+    match.players.push(p);
+    render();
+    return;
+  }
+
+  addManualPlayer(type,r,mi);
+}
+
+function addManualPlayer(type,r,mi){
+  const arr=type==='wb'?tournament.wb[r]:tournament.lb[r];
+  const match=arr && arr[mi];
+  if(!match || match.winner || match.players.length>=4) return;
+
+  const name=prompt('No removed players are available. Enter a new player name:');
+  if(!name || !name.trim()) return;
+
+  const clean=name.trim();
+  if(findActivePlayer(clean)){
+    alert('That player is already in an active match.');
+    return;
+  }
+
+  match.players.push({
+    id:'manual_'+Date.now()+'_'+Math.floor(Math.random()*100000),
+    name:clean,
+    losses:0,
+    manual:true
+  });
+  render();
+}
+
+function removePlayerFromMatch(type,r,mi,pidx){
+  const arr=type==='wb'?tournament.wb[r]:tournament.lb[r];
+  const match=arr && arr[mi];
+  if(!match || !match.players[pidx]) return;
+
+  const p=match.players[pidx];
+
+  if(!confirm(`Remove ${p.name} from this match? They will become available to add to another match.`)){
+    return;
+  }
+
+  // If the match already has a winner, undo the losses that were assigned
+  // when the winner was selected and reopen the match.
+  if(match.winner){
+    match.players.forEach(q=>{
+      if(q && q!==match.winner){
+        q.losses=Math.max(0,(q.losses||0)-1);
+      }
+    });
+    match.winner=null;
+  }
+
+  match.players.splice(pidx,1);
+
+  tournament.unassigned=tournament.unassigned||[];
+  if(!tournament.unassigned.some(q=>q && q.id===p.id)){
+    tournament.unassigned.push(p);
+  }
+
+  // A moved Losers Bracket finalist is no longer marked as moved if removed
+  // from its destination match, allowing it to be placed elsewhere.
+  if(tournament.lbMovedToWinners && tournament.lbMovedToWinners[p.id]){
+    delete tournament.lbMovedToWinners[p.id];
+  }
+
+  render();
+}
+
+
+
+function findActivePlayer(name){
+  const target=name.trim().toLowerCase();
+
+  for(const round of (tournament.wb||[])){
+    for(const m of round){
+      if(m.winner) continue;
+      for(const p of (m.players||[])){
+        if(p && p.name.trim().toLowerCase()===target) return true;
+      }
+    }
+  }
+
+  for(const round of (tournament.lb||[])){
+    for(const m of round){
+      if(m.winner) continue;
+      for(const p of (m.players||[])){
+        if(p && p.name.trim().toLowerCase()===target) return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+function moveLoserWinnerToWinners(r,mi){
+  const match=tournament.lb[r] && tournament.lb[r][mi];
+  if(!match || !match.winner) return;
+  if(r!==1){
+    alert('Only a Losers Round 2 finalist can be moved to the Winners Bracket.');
+    return;
+  }
+
+  const p=match.winner;
+  const wb2=tournament.wb[1];
+  if(!wb2) return;
+
+  for(const m of wb2){
+    if(!m.winner && m.players.length<4 && !m.players.some(q=>q&&q.id===p.id)){
+      m.players.push(p);
+      tournament.lbMovedToWinners=tournament.lbMovedToWinners||{};
+      tournament.lbMovedToWinners[p.id]=true;
+      render();
+      return;
+    }
+  }
+
+  alert('There are no open Winners Round 2 slots.');
+}
+
+function renderFinal(){
+  const m=tournament.final;
+  let s=`<div class="match"><div class="match-title">Grand Final</div>`;
+
+  const players=m.players||[];
+  for(let i=0;i<4;i++){
+    const p=players[i];
+    if(!p){
+      s+=`<div class="manual-slot">
+        <span>Empty Player Slot ${i+1}</span>
+        <button onclick="addFinalPlayer()">Add Player</button>
+      </div>`;
+    }else{
+      const cls=m.winner===p?'winner':(m.winner&&m.winner!==p?'loser':'');
+      s+=`<div class="player ${cls}">
+        <span>${esc(p.name)}</span>
+        <span class="player-actions">
+          ${!m.winner && players.length===4 ? `<button onclick="finalWinner(${i})">Winner</button>` : ''}
+          <button class="remove-player" title="Remove player" aria-label="Remove player" onclick="removeFinalPlayer(${i})">×</button>
+        </span>
+      </div>`;
+    }
+  }
+
+  if(m.winner) s+=`<div class="note">Winner: ${esc(m.winner.name)}</div>`;
+  else if(players.length<4) s+=`<div class="note">The Grand Final needs ${4-players.length} more player${4-players.length===1?'':'s'}.</div>`;
+
+  s+='</div>';
+  return s;
+}
+function finalWinner(i){
+  const m=tournament.final;
+  if(!m || m.winner) return;
+  const p=m.players[i];
+  if(!p || m.players.length<4) return;
+  m.winner=p;
+  tournament.champion=p;
+  render();
+}
+function addFinalPlayer(){
+  if(!tournament.final || tournament.final.winner || tournament.final.players.length>=4) return;
+
+  const pool=tournament.unassigned||[];
+  if(pool.length){
+    const choices=pool.map((p,i)=>`${i+1}. ${p.name}`).join('\n');
+    const answer=prompt(`Available players:\n\n${choices}\n\nEnter the number to add to the Grand Final.`);
+    if(answer===null) return;
+
+    const index=Number(answer)-1;
+    if(!Number.isInteger(index) || index<0 || index>=pool.length){
+      alert('Please enter a valid player number.');
+      return;
+    }
+
+    tournament.final.players.push(pool.splice(index,1)[0]);
+    render();
+    return;
+  }
+
+  const name=prompt('No removed players are available. Enter a new player name:');
+  if(!name || !name.trim()) return;
+  const clean=name.trim();
+
+  tournament.final.players.push({
+    id:'final_manual_'+Date.now()+'_'+Math.floor(Math.random()*100000),
+    name:clean,
+    losses:0,
+    manual:true
+  });
+  render();
+}
+
+function removeFinalPlayer(i){
+  if(!tournament.final || tournament.final.winner) return;
+  const p=tournament.final.players[i];
+  if(!p) return;
+
+  if(!confirm(`Remove ${p.name} from the Grand Final? They will become available to add elsewhere.`)){
+    return;
+  }
+
+  tournament.final.players.splice(i,1);
+  tournament.unassigned=tournament.unassigned||[];
+  if(!tournament.unassigned.some(q=>q && q.id===p.id)){
+    tournament.unassigned.push(p);
+  }
+  render();
+}
+
+function updateStatus(){
+  let txt=tournament.format==='double'
+    ? 'Second Chance format: two Winners finalists and two Second Chance finalists advance to the Grand Final.'
+    : 'Single elimination: one loss eliminates a player.';
+  if(tournament.champion) txt+=` 🏆 Champion: ${tournament.champion.name}`;
+  document.getElementById('status').textContent=txt;
+}
+function _resetTournament(){tournament=null;document.getElementById('output').innerHTML='<div class="empty">Enter your players and generate a bracket.</div>';document.getElementById('status').textContent=''}
+function esc(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+makeNameFields();
+</script>
+
+<div id="localSaveControls" style="position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;gap:8px;flex-wrap:wrap;background:#fff;padding:10px;border:1px solid #ccc;border-radius:10px;box-shadow:0 3px 12px rgba(0,0,0,.15)">
+  <button type="button" onclick="undoLastAction()" id="undoBtn" disabled>↩ Undo</button>
+  <button type="button" onclick="showTournamentSummary()">🏆 Summary</button>
+  <button type="button" onclick="toggleFullscreen()">⛶ Full Screen</button>
+  <button type="button" onclick="printBracket()">🖨 Print</button>
+  <button type="button" onclick="exportBracketSave()">Export</button>
+  <button type="button" onclick="importBracketSave()">Import</button>
+  <span id="saveStatus" aria-live="polite">Not saved</span>
+</div>
+<script>
+const LOCAL_BRACKET_KEY = '1v1v1v1_bracket_generator_save_v2';
+const LEGACY_BRACKET_KEY = '1v1v1v1_bracket_generator_save_v1';
+
+function getBracketState() {
+  return {
+    app: '1v1v1v1-bracket-generator',
+    version: 4,
+    savedAt: new Date().toISOString(),
+    names: [...document.querySelectorAll('#names input')].map(x => x.value),
+    count: document.getElementById('count').value,
+    format: document.getElementById('format').value,
+    tournament: tournament ? JSON.parse(JSON.stringify(tournament)) : null
+  };
+}
+
+function normalizeLoadedTournament(t) {
+  if (!t) return null;
+
+  t.format = t.format || 'single';
+  t.wb = Array.isArray(t.wb) ? t.wb : [];
+  t.lb = Array.isArray(t.lb) ? t.lb : [];
+  t.unassigned = Array.isArray(t.unassigned) ? t.unassigned : [];
+  t.scPool = Array.isArray(t.scPool) ? t.scPool : [];
+  t.scWildcards = Array.isArray(t.scWildcards) ? t.scWildcards : [];
+  t.scFinalists = Array.isArray(t.scFinalists) ? t.scFinalists : [];
+  t.scFinal = t.scFinal || null;
+  t.final = t.final || null;
+
+  // V8/V9 compatibility: older saves may still have the old losers-bracket
+  // bookkeeping. Keep it, but make sure the new Second Chance fields exist.
+  t.lbMovedToWinners = t.lbMovedToWinners || {};
+
+  const byId = {};
+  const collect = p => { if (p && p.id) byId[p.id] = p; };
+
+  (t.wb || []).forEach(round => (round || []).forEach(m => {
+    m.players = Array.isArray(m.players) ? m.players : [];
+    m.players.forEach(collect);
+    collect(m.winner);
+  }));
+  (t.lb || []).forEach(round => (round || []).forEach(m => {
+    m.players = Array.isArray(m.players) ? m.players : [];
+    m.players.forEach(collect);
+    collect(m.winner);
+  }));
+
+  t.scPool.forEach(collect);
+  t.scWildcards.forEach(collect);
+  t.scFinalists.forEach(collect);
+  t.unassigned.forEach(collect);
+
+  if (t.scFinal) {
+    t.scFinal.players = Array.isArray(t.scFinal.players) ? t.scFinal.players : [];
+    t.scFinal.placements = Array.isArray(t.scFinal.placements) ? t.scFinal.placements : [];
+    t.scFinal.players.forEach(collect);
+    t.scFinal.placements.forEach(x => collect(x && x.player));
+  }
+
+  if (t.final) {
+    t.final.players = Array.isArray(t.final.players) ? t.final.players : [];
+    t.final.players.forEach(collect);
+    collect(t.final.winner);
+  }
+
+  collect(t.wbChampion);
+  collect(t.lbChampion);
+  collect(t.champion);
+
+  const ref = p => p && p.id && byId[p.id] ? byId[p.id] : p;
+
+  t.wb.forEach(round => (round || []).forEach(m => {
+    m.players = m.players.map(ref);
+    m.winner = ref(m.winner);
+  }));
+  t.lb.forEach(round => (round || []).forEach(m => {
+    m.players = m.players.map(ref);
+    m.winner = ref(m.winner);
+  }));
+
+  t.scPool = t.scPool.map(ref);
+  t.scWildcards = t.scWildcards.map(ref);
+  t.scFinalists = t.scFinalists.map(ref);
+  t.unassigned = t.unassigned.map(ref);
+
+  if (t.scFinal) {
+    t.scFinal.players = t.scFinal.players.map(ref);
+    t.scFinal.placements = t.scFinal.placements.map(x => ({
+      place: x.place,
+      player: ref(x.player)
+    }));
+  }
+
+  if (t.final) {
+    t.final.players = t.final.players.map(ref);
+    t.final.winner = ref(t.final.winner);
+  }
+
+  t.wbChampion = ref(t.wbChampion);
+  t.lbChampion = ref(t.lbChampion);
+  t.champion = ref(t.champion);
+
+  // If an old V8 save had a completed Grand Final, preserve the winner.
+  if (t.final && t.final.winner) t.champion = t.final.winner;
+
+  return t;
+}
+
+function applyBracketState(state) {
+  if (!state) throw new Error('Save data is empty.');
+
+  // Accept V1/V2/V3/V4 saves and V8/V9 tournament objects.
+  const savedNames = Array.isArray(state.names) ? state.names : [];
+  const savedTournament = state.tournament || state;
+  const savedCount = Math.max(2, Math.min(30,
+    Number(state.count) || savedNames.length ||
+    (savedTournament && savedTournament.names && savedTournament.names.length) || 16
+  ));
+
+  const format = state.format || (savedTournament && savedTournament.format) || 'single';
+  document.getElementById('count').value = savedCount;
+  document.getElementById('format').value = format;
+
+  document.getElementById('names').innerHTML = '';
+  for (let i = 0; i < savedCount; i++) {
+    const x = document.createElement('input');
+    x.placeholder = `Player ${i + 1}`;
+    x.value = savedNames[i] || `Player ${i + 1}`;
+    x.dataset.i = i;
+    document.getElementById('names').appendChild(x);
+  }
+
+  names = savedNames.length ? savedNames.slice(0, savedCount) :
+    [...document.querySelectorAll('#names input')].map(x => x.value);
+
+  tournament = normalizeLoadedTournament(
+    savedTournament ? JSON.parse(JSON.stringify(savedTournament)) : null
+  );
+
+  if (!tournament) {
+    document.getElementById('output').innerHTML = '<div class="empty">Enter your players and generate a bracket.</div>';
+    updateStatus();
+    return;
+  }
+
+  render();
+}
+
+function saveBracketLocally() {
+  try {
+    const state = getBracketState();
+    const raw = JSON.stringify(state);
+    localStorage.setItem(LOCAL_BRACKET_KEY, raw);
+    // Also write the legacy key so older versions can still recover the save.
+    localStorage.setItem(LEGACY_BRACKET_KEY, raw);
+    alert('Bracket saved locally in this browser.');
+  } catch (e) {
+    alert('Could not save the bracket: ' + e.message);
+  }
+}
+
+function loadBracketLocally() {
+  try {
+    let raw = localStorage.getItem(LOCAL_BRACKET_KEY);
+    let source = 'current';
+
+    if (!raw) {
+      raw = localStorage.getItem(LEGACY_BRACKET_KEY);
+      source = 'legacy';
+    }
+
+    if (!raw) {
+      alert('No local bracket save was found. If this is a save from V8, use Export in V8 and Import here.');
+      return;
+    }
+
+    applyBracketState(JSON.parse(raw));
+    if (source === 'legacy') localStorage.setItem(LOCAL_BRACKET_KEY, raw);
+    alert('Bracket loaded.');
+  } catch (e) {
+    alert('Could not load the bracket: ' + e.message);
+  }
+}
+
+function exportBracketSave() {
+  try {
+    const state = getBracketState();
+    const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `1v1v1v1-bracket-save-${new Date().toISOString().replace(/[:.]/g,'-')}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch (e) {
+    alert('Could not export the bracket: ' + e.message);
+  }
+}
+
+function importBracketSave() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json,application/json,text/json';
+
+  input.onchange = async () => {
+    const file = input.files && input.files[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const state = JSON.parse(text);
+      applyBracketState(state);
+      localStorage.setItem(LOCAL_BRACKET_KEY, JSON.stringify(getBracketState()));
+      alert('Bracket save imported successfully.');
+    } catch (e) {
+      alert('Could not import the bracket save: ' + e.message);
+    }
+  };
+
+  input.click();
+}
+
+function deleteBracketSave() {
+  const hasCurrent = !!localStorage.getItem(LOCAL_BRACKET_KEY);
+  const hasLegacy = !!localStorage.getItem(LEGACY_BRACKET_KEY);
+  if (!hasCurrent && !hasLegacy) { alert('No local bracket save was found.'); return; }
+
+  if (confirm('Delete the locally saved bracket?')) {
+    localStorage.removeItem(LOCAL_BRACKET_KEY);
+    localStorage.removeItem(LEGACY_BRACKET_KEY);
+    alert('Local save deleted.');
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => {});
+
+</script>
+
+<script>
+/*
+  V8: Four-player Second Chance format.
+
+  Flow for 24 players:
+    Winners Round 1: 6 x 4 -> 6 winners + 18 Second Chance players
+    Select 2 Second Chance wildcards -> Winners Round 2
+    Winners Round 2: 2 x 4 -> 2 Grand Final finalists
+    Remaining 16 Second Chance players:
+      Round 1: 4 x 4 -> 4 winners
+      Second Chance Final: 1 x 4 -> select 1st + 2nd
+    Grand Final: 2 Winners finalists + 2 Second Chance finalists
+*/
+
+function generate(){
+  names=[...document.querySelectorAll('#names input')]
+    .map((x,i)=>x.value.trim()||`Player ${i+1}`);
+
+  if(names.length<2){
+    alert('Add at least 2 players.');
+    return;
+  }
+
+  tournament={
+    format:document.getElementById('format').value,
+    names,
+    wb:[],
+    lb:[],
+    final:null,
+    champion:null,
+    unassigned:[],
+    scPool:[],
+    scWildcards:[],
+    scFinalists:[],
+    scFinal:null,
+    scPrepared:false
+  };
+
+  buildWinnersBracket();
+
+  if(tournament.format==='double'){
+    buildLosersBracket();
+  }
+
+  render();
+}
+
+function buildWinnersBracket(){
+  const initial=names.map((name,i)=>({
+    id:'p'+i,
+    name,
+    losses:0
+  }));
+
+  const firstMatchCount=Math.ceil(initial.length/4);
+  const r1=[];
+
+  for(let mi=0;mi<firstMatchCount;mi++){
+    r1.push({
+      id:`w0m${mi}`,
+      players:initial.slice(mi*4,mi*4+4),
+      winner:null,
+      auto:false
+    });
+  }
+
+  tournament.wb=[r1];
+
+  if(tournament.format==='double'){
+    tournament.wb.push([
+      {id:'w1m0',players:[],winner:null,auto:false},
+      {id:'w1m1',players:[],winner:null,auto:false}
+    ]);
+    return;
+  }
+
+  let count=firstMatchCount;
+  let round=1;
+
+  while(count>1){
+    count=Math.ceil(count/4);
+    tournament.wb.push(
+      Array.from({length:count},(_,mi)=>({
+        id:`w${round}m${mi}`,
+        players:[],
+        winner:null,
+        auto:false
+      }))
+    );
+    round++;
+  }
+}
+
+function buildLosersBracket(){
+  // The Second Chance pool is created only after Winners Round 1 finishes.
+  tournament.lb=[];
+  tournament.scPool=[];
+  tournament.scWildcards=[];
+  tournament.scFinalists=[];
+  tournament.scFinal=null;
+  tournament.scPrepared=false;
+}
+
+function allWinnersComplete(roundIndex){
+  return tournament.wb[roundIndex] &&
+    tournament.wb[roundIndex].every(m=>m.winner);
+}
+
+function chooseWinner(type,r,m,pidx){
+  const arr=type==='wb' ? tournament.wb[r] : tournament.lb[r];
+  const match=arr && arr[m];
+
+  if(!match || match.winner) return;
+
+  const p=match.players[pidx];
+  // Winners Bracket requires 4 players. Second Chance games may have
+  // 2-4 players, so short Second Chance games can still choose a winner.
+  const shortAllowed =
+    type==='lb' ||
+    (type==='wb' && r===0);
+
+  if(!p || (!shortAllowed && match.players.length<4) ||
+     (shortAllowed && match.players.length<2)){
+    alert(shortAllowed
+      ? 'A game needs at least 2 players before choosing a winner.'
+      : 'Every game must have exactly 4 players before choosing a winner.');
+    return;
+  }
+
+  match.winner=p;
+
+  match.players.forEach((q,i)=>{
+    if(i!==pidx && q) q.losses=(q.losses||0)+1;
+  });
+
+  if(type==='wb'){
+    advanceWinners(r);
+  }else{
+    advanceSecondChanceRound(r,p);
+  }
+
+  render();
+}
+
+function advanceWinners(r){
+  if(!allWinnersComplete(r)) return;
+
+  const winners=tournament.wb[r].map(m=>m.winner).filter(Boolean);
+
+  if(tournament.format==='double' && r===0){
+    // Distribute ALL Winners Round 1 winners across the two Winners Round 2
+    // games as evenly as possible. No winner is silently dropped.
+    const wb2Count=2;
+    const wb2Base=Math.floor(winners.length/wb2Count);
+    const wb2Extra=winners.length%wb2Count;
+    let wb2Offset=0;
+    for(let i=0;i<wb2Count;i++){
+      const size=wb2Base+(i<wb2Extra?1:0);
+      tournament.wb[1][i].players=winners.slice(wb2Offset,wb2Offset+size);
+      wb2Offset+=size;
+    }
+
+    // All Round 1 losers become the Second Chance Pool.
+    tournament.scPool=[];
+
+    tournament.wb[0].forEach(m=>{
+      m.players.forEach(p=>{
+        if(p && m.winner!==p) tournament.scPool.push(p);
+      });
+    });
+
+    tournament.scWildcards=tournament.scWildcards||[];
+    tournament.scPrepared=false;
+
+    return;
+  }
+
+  if(r+1<tournament.wb.length){
+    winners.forEach(p=>{
+      for(const m of tournament.wb[r+1]){
+        if(!m.winner && m.players.length<4){
+          m.players.push(p);
+          break;
+        }
+      }
+    });
+  }else{
+    tournament.wbChampion=winners[0]||null;
+  }
+}
+
+function promoteSecondChancePlayer(id){
+  if(tournament.format!=='double') return;
+
+  tournament.scPool=tournament.scPool||[];
+  tournament.scWildcards=tournament.scWildcards||[];
+
+  if(tournament.scWildcards.length>=2){
+    alert('The two Winners Round 2 promotion slots are already filled.');
+    return;
+  }
+
+  const index=tournament.scPool.findIndex(p=>p&&p.id===id);
+  if(index<0) return;
+
+  const p=tournament.scPool[index];
+  const wb2=tournament.wb[1];
+  if(!wb2) return;
+
+  // Fill the first available Winners Round 2 slot.
+  let target=null;
+  for(const m of wb2){
+    if(!m.winner && m.players.length<4){
+      target=m;
+      break;
+    }
+  }
+
+  if(!target){
+    alert('There are no open Winners Round 2 slots.');
+    return;
+  }
+
+  target.players.push(p);
+  tournament.scPool.splice(index,1);
+  tournament.scWildcards.push(p);
+
+  // The promoted player is already represented in the completed Winners
+  // Round 1 match. Do not delete them from match history.
+
+  // Once both promotion slots are filled, build the actual Second Chance
+  // bracket immediately from everyone still in the pool.
+  if(tournament.scWildcards.length===2){
+    prepareSecondChanceBracket();
+  }
+
+  render();
+}
+
+function chooseSecondChanceWildcard(){
+  const pool=tournament.scPool||[];
+
+  if(!pool.length){
+    alert('There are no Second Chance players available.');
+    return;
+  }
+
+  if((tournament.scWildcards||[]).length>=2){
+    alert('Both wildcard slots are already filled.');
+    return;
+  }
+
+  const choices=pool.map((p,i)=>`${i+1}. ${p.name}`).join('\n');
+  const answer=prompt(
+    `Choose a Second Chance player for Winners Round 2:\n\n${choices}\n\nEnter the player number.`
+  );
+
+  if(answer===null) return;
+
+  const index=Number(answer)-1;
+  if(!Number.isInteger(index) || index<0 || index>=pool.length){
+    alert('Please enter a valid player number.');
+    return;
+  }
+
+  promoteSecondChancePlayer(pool[index].id);
+}
+
+function prepareSecondChanceBracket(){
+  if(tournament.scPrepared) return;
+  if((tournament.scWildcards||[]).length!==2) return;
+
+  // Put one promoted player into each Winners Round 2 game.
+  const wb2=tournament.wb[1];
+  if(!wb2 || wb2.length<2) return;
+
+  if(wb2[0].players.length<4 &&
+     !wb2[0].players.some(p=>p && p.id===tournament.scWildcards[0].id)){
+    wb2[0].players.push(tournament.scWildcards[0]);
+  }
+
+  if(wb2[1].players.length<4 &&
+     !wb2[1].players.some(p=>p && p.id===tournament.scWildcards[1].id)){
+    wb2[1].players.push(tournament.scWildcards[1]);
+  }
+
+  // Everything still in the Second Chance pool becomes Second Chance
+  // Round 1. The number of players does NOT have to be 16.
+  //
+  // Create as many 4-player games as necessary. The final game can have
+  // fewer than 4 players; its empty positions are rendered as Add Player
+  // slots by the existing match renderer.
+  const remaining=(tournament.scPool||[]).filter(Boolean);
+
+  if(!remaining.length){
+    tournament.lb=[];
+    tournament.scPrepared=true;
+    return;
+  }
+
+  const gameCount=Math.ceil(remaining.length/4);
+
+  tournament.lb=[Array.from({length:gameCount},(_,mi)=>{
+    const players=remaining.slice(mi*4,mi*4+4);
+    return {
+      id:`sc0m${mi}`,
+      players,
+      winner:null,
+      auto:false
+    };
+  })];
+
+  tournament.scPrepared=true;
+}
+
+function advanceSecondChanceRound(r,p){
+  const round=tournament.lb[r]||[];
+
+  // Wait until every game in the current round has a winner.
+  if(!round.length || !round.every(m=>m.winner)) return;
+
+  const winners=round.map(m=>m.winner).filter(Boolean);
+
+  // Two winners are exactly what we need for the Grand Final.
+  if(winners.length===2){
+    tournament.scFinal={
+      id:'scFinal',
+      players:winners,
+      winner:null,
+      placements:[]
+    };
+    tournament.scFinalists=winners.slice();
+    render();
+    return;
+  }
+
+  // More than two winners: create the next Second Chance round.
+  // Use the minimum number of games and distribute players as evenly
+  // as possible so there are never groups like 4 + 1 when 3 + 2 works.
+  if(winners.length>2){
+    const gameCount=Math.max(2,Math.ceil(winners.length/4));
+    const baseSize=Math.floor(winners.length/gameCount);
+    const extra=winners.length%gameCount;
+
+    const matches=[];
+    let offset=0;
+
+    for(let mi=0;mi<gameCount;mi++){
+      const size=baseSize+(mi<extra ? 1 : 0);
+
+      matches.push({
+        id:`sc${r+1}m${mi}`,
+        players:winners.slice(offset,offset+size),
+        winner:null,
+        auto:false
+      });
+
+      offset+=size;
+    }
+
+    tournament.lb[r+1]=matches;
+
+    // Remove any rounds that may have existed beyond the new round.
+    tournament.lb.length=r+2;
+
+    tournament.scFinal=null;
+    tournament.scFinalists=[];
+
+    render();
+  }
+}
+
+function chooseSecondChancePlacement(index,place){
+  const m=tournament.scFinal;
+  if(!m || !m.players[index]) return;
+
+  m.placements=m.placements||[];
+
+  // Do not allow the same player to hold both positions.
+  m.placements=m.placements.filter(x=>x.player!==m.players[index]);
+
+  if(place===1){
+    m.placements=m.placements.filter(x=>x.place!==1);
+  }else if(place===2){
+    m.placements=m.placements.filter(x=>x.place!==2);
+  }
+
+  m.placements.push({
+    player:m.players[index],
+    place
+  });
+
+  if(m.placements.some(x=>x.place===1) && m.placements.some(x=>x.place===2)){
+    tournament.scFinalists=[
+      m.placements.find(x=>x.place===1).player,
+      m.placements.find(x=>x.place===2).player
+    ];
+  }else{
+    tournament.scFinalists=[];
+  }
+
+  render();
+}
+
+function addPlayerToSlot(type,r,mi){
+  const arr=type==='wb'?tournament.wb[r]:tournament.lb[r];
+  const match=arr && arr[mi];
+
+  if(!match || match.winner || match.players.length>=4) return;
+
+  // Winners Round 2 empty positions are filled from the Second Chance Pool.
+  if(type==='wb' && r===1 && (tournament.scPool||[]).length){
+    chooseSecondChanceWildcard();
+    return;
+  }
+
+  const pool=tournament.unassigned||[];
+
+  if(pool.length){
+    const choices=pool.map((p,i)=>`${i+1}. ${p.name}`).join('\n');
+    const answer=prompt(
+      `Available players:\n\n${choices}\n\nEnter the number to add.`
+    );
+
+    if(answer===null) return;
+
+    const index=Number(answer)-1;
+
+    if(!Number.isInteger(index) || index<0 || index>=pool.length){
+      alert('Please enter a valid player number.');
+      return;
+    }
+
+    match.players.push(pool.splice(index,1)[0]);
+    render();
+    return;
+  }
+
+  addManualPlayer(type,r,mi);
+}
+
+function addManualPlayer(type,r,mi){
+  const arr=type==='wb'?tournament.wb[r]:tournament.lb[r];
+  const match=arr && arr[mi];
+
+  if(!match || match.winner || match.players.length>=4) return;
+
+  const name=prompt('No available players are in the pool. Enter a new player name:');
+  if(!name || !name.trim()) return;
+
+  const clean=name.trim();
+
+  match.players.push({
+    id:'manual_'+Date.now()+'_'+Math.floor(Math.random()*100000),
+    name:clean,
+    losses:0,
+    manual:true
+  });
+
+  render();
+}
+
+function removePlayerFromMatch(type,r,mi,pidx){
+  const arr=type==='wb'?tournament.wb[r]:tournament.lb[r];
+  const match=arr && arr[mi];
+
+  if(!match || !match.players[pidx]) return;
+
+  const p=match.players[pidx];
+
+  if(!confirm(`Remove ${p.name} from this match? They will become available to add to another match.`)){
+    return;
+  }
+
+  if(match.winner){
+    match.players.forEach(q=>{
+      if(q && q!==match.winner){
+        q.losses=Math.max(0,(q.losses||0)-1);
+      }
+    });
+    match.winner=null;
+  }
+
+  match.players.splice(pidx,1);
+
+  tournament.unassigned=tournament.unassigned||[];
+
+  if(!tournament.unassigned.some(q=>q && q.id===p.id)){
+    tournament.unassigned.push(p);
+  }
+
+  // Changing Winners Round 1 invalidates everything that was built from it.
+  // Rebuild the Second Chance phase from scratch once Round 1 is complete.
+  if(type==='wb' && r===0 && tournament.format==='double'){
+    const wb2=tournament.wb[1];
+
+    if(wb2){
+      wb2.forEach(m=>{
+        m.players=[];
+        m.winner=null;
+      });
+    }
+
+    tournament.scPool=[];
+    tournament.scWildcards=[];
+    tournament.scFinalists=[];
+    tournament.scFinal=null;
+    tournament.lb=[];
+    tournament.scPrepared=false;
+  }
+
+  render();
+}
+
+function renderCore(){
+  const out=document.getElementById('output');
+
+  let html='<div class="section-title">Winners Bracket</div><div class="bracket-wrap"><div class="rounds">';
+
+  tournament.wb.forEach((matches,r)=>{
+    html+=`<div class="round"><h2>Round ${r+1}</h2>`;
+    matches.forEach((m,mi)=>{
+      html+=renderMatch(m,'wb',r,mi);
+    });
+    html+='</div>';
+  });
+
+  html+='</div></div>';
+
+  if(tournament.format==='double'){
+    html+=renderSecondChance();
+  }else{
+    const wc=tournament.wbChampion;
+    if(wc) html+=`<div class="champion">🏆 Champion: ${esc(wc.name)}</div>`;
+  }
+
+  out.innerHTML=html;
+  updateStatus();
+}
+
+function renderSecondChance(){
+  let html='<div class="section-title">Second Chance</div>';
+
+  html+='<div class="bracket-wrap"><div class="rounds">';
+
+  // Pool / wildcard selection.
+  html+='<div class="round"><h2>Second Chance Pool</h2>';
+  html+='<div class="match"><div class="match-title">Choose 2 Wildcards</div>';
+
+  const pool=tournament.scPool||[];
+  const wildcards=tournament.scWildcards||[];
+
+  wildcards.forEach(p=>{
+    html+=`<div class="player winner"><span>${esc(p.name)}</span><span>Wildcard</span></div>`;
+  });
+
+  if(!pool.length && !wildcards.length){
+    html+='<div class="empty">Waiting for Winners Round 1 to finish.</div>';
+  }else{
+    pool.forEach(p=>{
+      if(wildcards.some(w=>w.id===p.id)) return;
+      html+=`<div class="player">
+        <span>${esc(p.name)}</span>
+        ${wildcards.length<2
+          ? `<button onclick="promoteSecondChancePlayer('${p.id}')">Promote</button>`
+          : ''}
+      </div>`;
+    });
+  }
+
+  if(wildcards.length<2 && pool.length){
+    html+='<div class="note">Select two players to fill the two missing Winners Round 2 slots.</div>';
+  }else if(wildcards.length===2){
+    html+='<div class="note">Two wildcards selected. The remaining players enter Second Chance Round 1.</div>';
+  }
+
+  html+='</div></div>';
+
+  // Second Chance Round 1.
+  if(tournament.lb && tournament.lb.length){
+    tournament.lb.forEach((matches,r)=>{
+      html+=`<div class="round"><h2>Second Chance Round ${r+1}</h2>`;
+      matches.forEach((m,mi)=>{
+        html+=renderMatch(m,'lb',r,mi);
+      });
+      html+='</div>';
+    });
+  }
+
+  // Second Chance Final.
+  if(tournament.scFinal){
+    html+='<div class="round"><h2>Second Chance Final</h2>';
+    html+=renderSecondChanceFinal();
+    html+='</div>';
+  }
+
+  html+='</div></div>';
+
+  const wb2=tournament.wb[1];
+  const wbFinalists=wb2 ? wb2.map(m=>m.winner).filter(Boolean) : [];
+  const scFinalists=tournament.scFinalists||[];
+
+  if(wbFinalists.length===2 && scFinalists.length===2){
+    const finalPlayers=[...wbFinalists,...scFinalists];
+    const existing=tournament.final;
+    const samePlayers=existing && existing.players && existing.players.length===4 &&
+      existing.players.every((p,i)=>p && finalPlayers[i] && p.id===finalPlayers[i].id);
+
+    if(!samePlayers){
+      tournament.final={
+        players:finalPlayers,
+        winner:null
+      };
+    }else{
+      // Preserve the existing winner when the page re-renders.
+      tournament.final.players=finalPlayers;
+    }
+  }
+
+  html+='<div class="section-title">Grand Final</div><div class="bracket-wrap"><div class="rounds"><div class="round">';
+
+  if(tournament.final){
+    html+=renderFinal();
+  }else{
+    html+='<div class="empty">The Grand Final requires 2 Winners finalists and 2 Second Chance finalists.</div>';
+  }
+
+  html+='</div></div></div>';
+
+  return html;
+}
+
+function renderSecondChanceFinal(){
+  const m=tournament.scFinal;
+  if(!m) return '';
+
+  let s='<div class="match"><div class="match-title">Second Chance Finalists</div>';
+
+  (m.players||[]).forEach(p=>{
+    s+=`<div class="player winner">
+      <span>${esc(p.name)}</span>
+      <span>Finalist</span>
+    </div>`;
+  });
+
+  s+='<div class="note">These 2 players advance to the Grand Final.</div>';
+  s+='</div>';
+  return s;
+}
+
+function removePlayerFromSecondChanceFinal(index){
+  const m=tournament.scFinal;
+  if(!m || !m.players[index]) return;
+
+  const p=m.players[index];
+
+  if(!confirm(`Remove ${p.name} from this game?`)) return;
+
+  m.placements=(m.placements||[]).filter(x=>x.player.id!==p.id);
+  tournament.scFinalists=[];
+
+  m.players.splice(index,1);
+
+  tournament.unassigned=tournament.unassigned||[];
+  if(!tournament.unassigned.some(q=>q.id===p.id)){
+    tournament.unassigned.push(p);
+  }
+
+  render();
+}
+
+function renderMatch(m,type,r,mi){
+  let s=`<div class="match"><div class="match-title">${type==='wb'?'Match':'Game'} ${mi+1}</div>`;
+  const players=m.players||[];
+
+  // Winners Bracket games require 4 players.
+  // Second Chance games may have 2, 3, or 4 players.
+  const isShortSecondChance=(type==='lb');
+  const isShortFirstRound=(type==='wb' && r===0);
+  const allowShortMatch=isShortSecondChance || isShortFirstRound;
+  const slotCount=allowShortMatch ? players.length : 4;
+
+  for(let i=0;i<slotCount;i++){
+    const p=players[i];
+    if(!p) continue;
+
+    let cls=m.winner===p?'winner':(m.winner&&m.winner!==p?'loser':'');
+    let actions='';
+
+    if(!m.winner && (
+      players.length===4 ||
+      (allowShortMatch && players.length>=2)
+    )){
+      actions+=`<button onclick="chooseWinner('${type}',${r},${mi},${i})">Winner</button>`;
+    }
+
+    actions+=`<button class="remove-player" title="Remove player" aria-label="Remove player" onclick="removePlayerFromMatch('${type}',${r},${mi},${i})">×</button>`;
+
+    s+=`<div class="player ${cls}">
+      <span>${esc(p.name)}</span>
+      <span class="player-actions">${actions}</span>
+    </div>`;
+  }
+
+  // Winners Round 2+ still requires four players. Short first-round and
+  // Second Chance games do not show filler slots.
+  if(!m.winner && !allowShortMatch && players.length<4){
+    for(let i=players.length;i<4;i++){
+      s+=`<div class="manual-slot">
+        <span>Empty Player Slot ${i+1}</span>
+        <button onclick="addPlayerToSlot('${type}',${r},${mi})">Add Player</button>
+      </div>`;
+    }
+    s+=`<div class="note">This game needs ${4-players.length} more player${4-players.length===1?'':'s'}.</div>`;
+  }
+
+  if(m.winner){
+    s+=`<div class="note">Winner: ${esc(m.winner.name)}</div>`;
+
+    if(type==='lb' && r===1 && !(tournament.lbMovedToWinners||{})[m.winner.id]){
+      s+=`<div class="note">Losers Round 2 finalist.</div>`;
+    }else if(type==='lb' && r===1 && (tournament.lbMovedToWinners||{})[m.winner.id]){
+      s+=`<div class="note">Winner moved to Winners Bracket.</div>`;
+    }
+  }
+
+  s+='</div>';
+  return s;
+}
+
+function updateStatus(){
+  let txt=tournament.format==='double'
+    ? 'Second Chance format: four-player games. Two Second Chance wildcards enter Winners Round 2, and the remaining Second Chance players produce two Grand Final finalists.'
+    : 'Single elimination: one loss eliminates a player.';
+
+  if(tournament.champion){
+    txt+=` 🏆 Champion: ${tournament.champion.name}`;
+  }
+
+  document.getElementById('status').textContent=txt;
+}
+
+/* Rebuild save/load identity handling for the new Second Chance fields. */
+function getBracketState(){
+  return {
+    version:3,
+    savedAt:new Date().toISOString(),
+    names:[...document.querySelectorAll('#names input')].map(x=>x.value),
+    count:document.getElementById('count').value,
+    format:document.getElementById('format').value,
+    tournament:tournament ? JSON.parse(JSON.stringify(tournament)) : null
+  };
+}
+
+function applyBracketState(state){
+  if(!state) throw new Error('Save data is empty.');
+
+  const savedNames=Array.isArray(state.names)?state.names:[];
+  const savedCount=Math.max(2,Math.min(30,Number(state.count)||savedNames.length||16));
+
+  document.getElementById('count').value=savedCount;
+  document.getElementById('format').value=state.format || (state.tournament&&state.tournament.format) || 'single';
+
+  document.getElementById('names').innerHTML='';
+
+  for(let i=0;i<savedCount;i++){
+    const x=document.createElement('input');
+    x.placeholder=`Player ${i+1}`;
+    x.value=savedNames[i]||`Player ${i+1}`;
+    x.dataset.i=i;
+    document.getElementById('names').appendChild(x);
+  }
+
+  names=savedNames.length?savedNames.slice(0,savedCount):
+    [...document.querySelectorAll('#names input')].map(x=>x.value);
+
+  tournament=state.tournament ? JSON.parse(JSON.stringify(state.tournament)) : null;
+
+  if(!tournament){
+    document.getElementById('output').innerHTML='<div class="empty">Enter your players and generate a bracket.</div>';
+    updateStatus();
+    return;
+  }
+
+  tournament.scPool=tournament.scPool||[];
+  tournament.scWildcards=tournament.scWildcards||[];
+  tournament.scFinalists=tournament.scFinalists||[];
+  tournament.unassigned=tournament.unassigned||[];
+
+  const byId={};
+
+  function collect(p){
+    if(p && p.id) byId[p.id]=p;
+  }
+
+  (tournament.wb||[]).forEach(round=>round.forEach(m=>{
+    (m.players||[]).forEach(collect);
+    collect(m.winner);
+  }));
+
+  (tournament.lb||[]).forEach(round=>round.forEach(m=>{
+    (m.players||[]).forEach(collect);
+    collect(m.winner);
+  }));
+
+  (tournament.scPool||[]).forEach(collect);
+  (tournament.scWildcards||[]).forEach(collect);
+  (tournament.scFinalists||[]).forEach(collect);
+  (tournament.unassigned||[]).forEach(collect);
+
+  if(tournament.scFinal){
+    (tournament.scFinal.players||[]).forEach(collect);
+    (tournament.scFinal.placements||[]).forEach(x=>collect(x.player));
+  }
+
+  if(tournament.final){
+    (tournament.final.players||[]).forEach(collect);
+    collect(tournament.final.winner);
+  }
+
+  collect(tournament.wbChampion);
+  collect(tournament.champion);
+
+  function ref(p){
+    return p && p.id && byId[p.id] ? byId[p.id] : p;
+  }
+
+  (tournament.wb||[]).forEach(round=>round.forEach(m=>{
+    m.players=(m.players||[]).map(ref);
+    m.winner=ref(m.winner);
+  }));
+
+  (tournament.lb||[]).forEach(round=>round.forEach(m=>{
+    m.players=(m.players||[]).map(ref);
+    m.winner=ref(m.winner);
+  }));
+
+  tournament.scPool=tournament.scPool.map(ref);
+  tournament.scWildcards=tournament.scWildcards.map(ref);
+  tournament.scFinalists=tournament.scFinalists.map(ref);
+  tournament.unassigned=tournament.unassigned.map(ref);
+
+  if(tournament.scFinal){
+    tournament.scFinal.players=(tournament.scFinal.players||[]).map(ref);
+    tournament.scFinal.placements=(tournament.scFinal.placements||[]).map(x=>({
+      place:x.place,
+      player:ref(x.player)
+    }));
+  }
+
+  if(tournament.final){
+    tournament.final.players=(tournament.final.players||[]).map(ref);
+    tournament.final.winner=ref(tournament.final.winner);
+  }
+
+  tournament.wbChampion=ref(tournament.wbChampion);
+  tournament.champion=ref(tournament.champion);
+
+  render();
+}
+</script>
+
+
+<script>
+/* V10 authoritative save/load functions. These intentionally appear last so
+   they override the older V8/V9 compatibility helpers embedded in the file. */
+const V10_LOCAL_KEY='1v1v1v1_bracket_generator_save_v2';
+const V10_LEGACY_KEY='1v1v1v1_bracket_generator_save_v1';
+
+function getBracketState(){
+  return {
+    app:'1v1v1v1-bracket-generator',
+    version:4,
+    savedAt:new Date().toISOString(),
+    names:[...document.querySelectorAll('#names input')].map(x=>x.value),
+    count:document.getElementById('count').value,
+    format:document.getElementById('format').value,
+    tournament:tournament?JSON.parse(JSON.stringify(tournament)):null
+  };
+}
+
+function v10Normalize(t){
+  if(!t)return null;
+  t.format=t.format||'single';
+  t.wb=Array.isArray(t.wb)?t.wb:[];
+  t.lb=Array.isArray(t.lb)?t.lb:[];
+  t.scPool=Array.isArray(t.scPool)?t.scPool:[];
+  t.scWildcards=Array.isArray(t.scWildcards)?t.scWildcards:[];
+  t.scFinalists=Array.isArray(t.scFinalists)?t.scFinalists:[];
+  t.unassigned=Array.isArray(t.unassigned)?t.unassigned:[];
+  t.lbMovedToWinners=t.lbMovedToWinners||{};
+  const byId={};
+  const collect=p=>{if(p&&p.id)byId[p.id]=p;};
+  (t.wb||[]).forEach(r=>(r||[]).forEach(m=>{m.players=Array.isArray(m.players)?m.players:[];m.players.forEach(collect);collect(m.winner);}));
+  (t.lb||[]).forEach(r=>(r||[]).forEach(m=>{m.players=Array.isArray(m.players)?m.players:[];m.players.forEach(collect);collect(m.winner);}));
+  t.scPool.forEach(collect);t.scWildcards.forEach(collect);t.scFinalists.forEach(collect);t.unassigned.forEach(collect);
+  if(t.scFinal){t.scFinal.players=Array.isArray(t.scFinal.players)?t.scFinal.players:[];t.scFinal.placements=Array.isArray(t.scFinal.placements)?t.scFinal.placements:[];t.scFinal.players.forEach(collect);t.scFinal.placements.forEach(x=>collect(x&&x.player));}
+  if(t.final){t.final.players=Array.isArray(t.final.players)?t.final.players:[];t.final.players.forEach(collect);collect(t.final.winner);}
+  collect(t.wbChampion);collect(t.lbChampion);collect(t.champion);
+  const ref=p=>p&&p.id&&byId[p.id]?byId[p.id]:p;
+  t.wb.forEach(r=>r.forEach(m=>{m.players=m.players.map(ref);m.winner=ref(m.winner);}));
+  t.lb.forEach(r=>r.forEach(m=>{m.players=m.players.map(ref);m.winner=ref(m.winner);}));
+  t.scPool=t.scPool.map(ref);t.scWildcards=t.scWildcards.map(ref);t.scFinalists=t.scFinalists.map(ref);t.unassigned=t.unassigned.map(ref);
+  if(t.scFinal){t.scFinal.players=t.scFinal.players.map(ref);t.scFinal.placements=t.scFinal.placements.map(x=>({place:x.place,player:ref(x.player)}));}
+  if(t.final){t.final.players=t.final.players.map(ref);t.final.winner=ref(t.final.winner);}
+  t.wbChampion=ref(t.wbChampion);t.lbChampion=ref(t.lbChampion);t.champion=ref(t.champion);
+  if(t.final&&t.final.winner)t.champion=t.final.winner;
+  return t;
+}
+
+function applyBracketState(state){
+  if(!state)throw new Error('Save data is empty.');
+
+  // Accept direct V8/V9/V10 saves AND the V8 console-export wrapper:
+  // { format, exportVersion, source, storageKey, data: { ...actual save... } }
+  if(state.data && typeof state.data === 'object') state=state.data;
+
+  // Some older exports may contain the JSON text as data.
+  if(typeof state.data === 'string'){
+    try{ state=JSON.parse(state.data); }catch(e){}
+  }
+
+  const t0=state.tournament||state;
+  const ns=Array.isArray(state.names)?state.names:[];
+  const count=Math.max(2,Math.min(30,Number(state.count)||ns.length||(t0.names&&t0.names.length)||16));
+  document.getElementById('count').value=count;
+  document.getElementById('format').value=state.format||t0.format||'single';
+  document.getElementById('names').innerHTML='';
+  for(let i=0;i<count;i++){const x=document.createElement('input');x.placeholder=`Player ${i+1}`;x.value=ns[i]||`Player ${i+1}`;x.dataset.i=i;document.getElementById('names').appendChild(x);}
+  names=ns.length?ns.slice(0,count):[...document.querySelectorAll('#names input')].map(x=>x.value);
+  tournament=v10Normalize(JSON.parse(JSON.stringify(t0)));
+  render();
+}
+
+function saveBracketLocally(){
+  try{const raw=JSON.stringify(getBracketState());localStorage.setItem(V10_LOCAL_KEY,raw);localStorage.setItem(V10_LEGACY_KEY,raw);alert('Bracket saved locally in this browser.');}
+  catch(e){alert('Could not save the bracket: '+e.message);}
+}
+function loadBracketLocally(){
+  try{const raw=localStorage.getItem(V10_LOCAL_KEY)||localStorage.getItem(V10_LEGACY_KEY);if(!raw){alert('No local bracket save was found. For a V8 save, use Export in V8 and Import here.');return;}applyBracketState(JSON.parse(raw));alert('Bracket loaded.');}
+  catch(e){alert('Could not load the bracket: '+e.message);}
+}
+function exportBracketSave(){
+  try{const blob=new Blob([JSON.stringify(getBracketState(),null,2)],{type:'application/json'});const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=`1v1v1v1-bracket-save-${new Date().toISOString().replace(/[:.]/g,'-')}.json`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1000);}
+  catch(e){alert('Could not export the bracket: '+e.message);}
+}
+function importBracketSave(){
+  const input=document.createElement('input');input.type='file';input.accept='.json,application/json';
+  input.onchange=async()=>{const f=input.files&&input.files[0];if(!f)return;try{const state=JSON.parse(await f.text());applyBracketState(state);localStorage.setItem(V10_LOCAL_KEY,JSON.stringify(getBracketState()));alert('Bracket save imported successfully.');}catch(e){alert('Could not import the bracket save: '+e.message);}};
+  input.click();
+}
+function deleteBracketSave(){if(confirm('Delete the locally saved bracket?')){localStorage.removeItem(V10_LOCAL_KEY);localStorage.removeItem(V10_LEGACY_KEY);alert('Local save deleted.');}}
+
+/* Automatic local saving/loading. Import and Export remain available. */
+function autoSaveBracket(){
+  try{
+    const state=getBracketState();
+    const raw=JSON.stringify(state);
+    localStorage.setItem(V10_LOCAL_KEY,raw);
+    localStorage.setItem(V10_LEGACY_KEY,raw);
+  }catch(e){
+    console.warn('Could not autosave the bracket:',e);
+  }
+}
+
+function render(){
+  const out=document.getElementById('output');
+  const displayName=esc(tournament.tournamentName||'Tournament');
+  let html=`<div class="section-title">${displayName} — Winners Bracket</div><div class="bracket-wrap"><div class="rounds">`;
+
+  tournament.wb.forEach((matches,r)=>{
+    html+=`<div class="round"><h2>Round ${r+1}</h2>`;
+    matches.forEach((m,mi)=>html+=renderMatch(m,'wb',r,mi));
+    html+='</div>';
+  });
+  html+='</div></div>';
+
+  if(tournament.format==='double'){
+    // Promotion panel appears as soon as Winners Round 1 is complete.
+    const r1=tournament.wb[0]||[];
+    const pool=tournament.scPool||[];
+    const promoted=tournament.scWildcards||[];
+
+    html+='<div class="section-title">Losers Bracket</div>';
+    if(r1.length && r1.every(m=>m&&m.winner)){
+      html+='<div class="promotion-panel">';
+      html+='<h3>Move to Winner\'s Bracket</h3>';
+      html+=`<div class="note">Select ${Math.max(0,2-promoted.length)} player${Math.max(0,2-promoted.length)===1?'':'s'} to fill the open Winners Round 2 slots.</div>`;
+
+      if(promoted.length){
+        html+='<div class="promoted-list"><strong>Promoted:</strong> ';
+        html+=promoted.map(p=>esc(p.name)).join(', ');
+        html+='</div>';
+      }
+
+      if(promoted.length<2){
+        pool.forEach((p,index)=>{
+          if(promoted.some(w=>w&&w.id===p.id)) return;
+          html+=`<div class="promotion-player"><span>${esc(p.name)}</span><button onclick="promoteSecondChancePlayer('${p.id}')">Promote</button></div>`;
+        });
+      }else{
+        html+='<div class="note">Both Winners Round 2 promotion slots are filled.</div>';
+      }
+      html+='</div>';
+    }
+
+    html+='<div class="bracket-wrap"><div class="rounds">';
+    if(!tournament.lb.length){
+      html+='<div class="round"><h2>Loss Round 1</h2><div class="match"><div class="match-title">Waiting for Winners Round 1</div><div class="empty">Losers will enter here when Winners Round 1 is complete.</div></div></div>';
+    }else{
+      tournament.lb.forEach((matches,r)=>{
+        html+=`<div class="round"><h2>Loss Round ${r+1}</h2>`;
+        matches.forEach((m,mi)=>html+=renderMatch(m,'lb',r,mi));
+        html+='</div>';
+      });
+    }
+    html+='</div></div>';
+
+    const wb2=tournament.wb[1];
+    const wbFinalists=wb2 ? wb2.map(m=>m.winner).filter(Boolean) : [];
+    const lbFinalists=tournament.scFinalists||[];
+
+    if(wbFinalists.length===2 && lbFinalists.length===2){
+      const finalPlayers=[...wbFinalists,...lbFinalists];
+      const existing=tournament.final;
+      const samePlayers=existing && existing.players && existing.players.length===4 &&
+        existing.players.every((p,i)=>p&&finalPlayers[i]&&p.id===finalPlayers[i].id);
+      if(!samePlayers){
+        tournament.final={players:finalPlayers,winner:null};
+      }else{
+        tournament.final.players=finalPlayers;
+      }
+    }
+
+    html+='<div class="section-title">Grand Final</div><div class="bracket-wrap"><div class="rounds"><div class="round">';
+    if(tournament.final) html+=renderFinal();
+    else html+='<div class="empty">The Grand Final will appear after the Winners and Losers brackets each produce two finalists.</div>';
+    html+='</div></div></div>';
+  }else{
+    const wc=tournament.wbChampion;
+    if(wc) html+=`<div class="champion">🏆 Champion: ${esc(wc.name)}</div>`;
+  }
+
+  out.innerHTML=html;
+  updateStatus();
+}
+
+function autoLoadBracket(){
+  try{
+    const raw=localStorage.getItem(V10_LOCAL_KEY) ||
+              localStorage.getItem(V10_LEGACY_KEY);
+
+    if(!raw) return;
+
+    const state=JSON.parse(raw);
+    if(!state || !state.tournament) return;
+
+    applyBracketState(state);
+  }catch(e){
+    console.warn('Could not autoload the bracket:',e);
+  }
+}
+
+window.addEventListener('DOMContentLoaded',()=>{
+  autoLoadBracket();
+});
+</script>
+
+
+<script>
+/* ===== V12 quality-of-life layer ===== */
+const V12_HISTORY_KEY='1v1v1v1_bracket_generator_undo_v1';
+const V12_MAX_HISTORY=200;
+let v12History=[];
+let v12HistoryBusy=false;
+
+function v12Clone(x){
+  return JSON.parse(JSON.stringify(x));
+}
+function v12CurrentState(){
+  return getBracketState();
+}
+function v12StateComparable(s){
+  return JSON.stringify(s||null);
+}
+function v12PersistHistory(){
+  try{
+    localStorage.setItem(V12_HISTORY_KEY,JSON.stringify(v12History));
+  }catch(e){
+    // If storage gets tight, retain the newest portion.
+    while(v12History.length>25){
+      v12History.shift();
+      try{
+        localStorage.setItem(V12_HISTORY_KEY,JSON.stringify(v12History));
+        return;
+      }catch(ignore){}
+    }
+  }
+  v12UpdateUndoButton();
+}
+function v12PushHistory(state){
+  const copy=v12Clone(state);
+  const last=v12History[v12History.length-1];
+  if(last && v12StateComparable(last.state)===v12StateComparable(copy)) return;
+  v12History.push({state:copy,savedAt:new Date().toISOString()});
+  if(v12History.length>V12_MAX_HISTORY) v12History.shift();
+  v12PersistHistory();
+}
+function v12LoadHistory(){
+  try{
+    const raw=localStorage.getItem(V12_HISTORY_KEY);
+    if(raw){
+      const parsed=JSON.parse(raw);
+      if(Array.isArray(parsed)) v12History=parsed;
+    }
+  }catch(e){v12History=[]}
+  v12UpdateUndoButton();
+}
+function v12UpdateUndoButton(){
+  const b=document.getElementById('undoBtn');
+  if(!b)return;
+  b.disabled=v12History.length===0 || v12HistoryBusy;
+  b.textContent=v12History.length
+    ? `↩ Undo (${v12History.length})`
+    : '↩ Undo';
+}
+function v12Action(fn){
+  return function(...args){
+    if(v12HistoryBusy) return fn.apply(this,args);
+    const before=v12Clone(v12CurrentState());
+    const result=fn.apply(this,args);
+    const after=v12Clone(v12CurrentState());
+    if(v12StateComparable(before)!==v12StateComparable(after)){
+      v12PushHistory(before);
+      v12AutoSave();
+    }
+    return result;
+  };
+}
+
+async function undoLastAction(){
+  if(v12HistoryBusy || !v12History.length) return;
+  const entry=v12History.pop();
+  v12HistoryBusy=true;
+  try{
+    applyBracketState(entry.state);
+    v12PersistHistory();
+    v12AutoSave();
+  }catch(e){
+    v12History.push(entry);
+    alert('Could not undo that action: '+e.message);
+  }finally{
+    v12HistoryBusy=false;
+    v12UpdateUndoButton();
+    v12EnhanceRenderedUI();
+  }
+}
+
+function v12AutoSave(){
+  try{
+    const state=getBracketState();
+    localStorage.setItem(LOCAL_BRACKET_KEY,JSON.stringify(state));
+    localStorage.setItem(LEGACY_BRACKET_KEY,JSON.stringify(state));
+    const el=document.getElementById('saveStatus');
+    if(el){
+      el.textContent='✓ Saved '+new Date().toLocaleTimeString([],{
+        hour:'numeric',minute:'2-digit',second:'2-digit'
+      });
+    }
+  }catch(e){
+    const el=document.getElementById('saveStatus');
+    if(el) el.textContent='⚠ Save failed';
+  }
+}
+
+/* Preserve tournament name/date in the existing save format. */
+const v12OriginalGetBracketState=getBracketState;
+getBracketState=function(){
+  const s=v12OriginalGetBracketState();
+  s.tournamentName=document.getElementById('tournamentName')?.value||'';
+  if(tournament && tournament.tournamentName){
+    s.tournamentName=tournament.tournamentName;
+  }
+  return s;
+};
+
+const v12OriginalApplyBracketState=applyBracketState;
+applyBracketState=function(state){
+  v12OriginalApplyBracketState(state);
+  const name=(state&&state.tournamentName) ||
+    (state&&state.tournament&&state.tournament.tournamentName) || '';
+  const input=document.getElementById('tournamentName');
+  if(input) input.value=name;
+  if(tournament && name) tournament.tournamentName=name;
+  v12EnhanceRenderedUI();
+};
+
+/* Generate: preserve the existing confirmation, then give the new bracket
+   a name/start date and save it. The pre-generate state is recorded so Undo
+   returns all the way to the state before the bracket existed. */
+const v12OriginalGenerate=_generate;
+_generate=function(){
+  const before=v12Clone(v12CurrentState());
+  v12OriginalGenerate.apply(this,arguments);
+  if(tournament){
+    tournament.tournamentName=(document.getElementById('tournamentName')?.value||'').trim()||'Tournament';
+    tournament.startedAt=tournament.startedAt||new Date().toISOString();
+    v12PushHistory(before);
+    render();
+    v12AutoSave();
+  }
+};
+
+const v12OriginalReset=_resetTournament;
+_resetTournament=function(){
+  const before=v12Clone(v12CurrentState());
+  v12OriginalReset.apply(this,arguments);
+  v12PushHistory(before);
+  v12AutoSave();
+  v12UpdateUndoButton();
+};
+
+/* Wrap user actions that mutate bracket state. Internal calls are protected
+   by v12HistoryBusy so one click creates one undo point. */
+[
+  'promoteSecondChancePlayer',
+  'chooseSecondChanceWildcard',
+  'chooseSecondChancePlacement',
+  'addPlayerToSlot',
+  'addManualPlayer',
+  'removePlayerFromMatch',
+  'moveLoserWinnerToWinners',
+  'finalWinner',
+  'addFinalPlayer',
+  'removeFinalPlayer'
+].forEach(name=>{
+  if(typeof window[name]==='function'){
+    window[name]=v12Action(window[name]);
+  }
+});
+
+/* Import gets an undo point before the file picker is opened. */
+const v12OriginalImport=importBracketSave;
+importBracketSave=function(){
+  const before=v12Clone(v12CurrentState());
+  const input=document.createElement('input');
+  input.type='file';
+  input.accept='.json,application/json,text/json';
+  input.onchange=async()=>{
+    const file=input.files&&input.files[0];
+    if(!file)return;
+    try{
+      const text=await file.text();
+      const state=JSON.parse(text);
+      v12PushHistory(before);
+      applyBracketState(state);
+      v12AutoSave();
+      alert('Bracket save imported successfully.');
+    }catch(e){
+      alert('Could not import the bracket save: '+e.message);
+    }
+  };
+  input.click();
+};
+
+/* Export includes the undo history, so an exported tournament can be
+   restored and still have its Undo chain. */
+exportBracketSave=function(){
+  try{
+    const state=getBracketState();
+    state.undoHistory=v12History;
+    const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download=`1v1v1v1-bracket-save-${new Date().toISOString().replace(/[:.]/g,'-')}.json`;
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }catch(e){alert('Could not export the bracket: '+e.message)}
+};
+
+/* Autosave/restore. */
+const v12OriginalAutoLoad=autoLoadBracket;
+autoLoadBracket=function(){
+  try{
+    const raw=localStorage.getItem(LOCAL_BRACKET_KEY)||
+      localStorage.getItem(LEGACY_BRACKET_KEY);
+    if(raw){
+      const state=JSON.parse(raw);
+      v12OriginalApplyBracketState(state);
+      const input=document.getElementById('tournamentName');
+      if(input) input.value=state.tournamentName||
+        state.tournament?.tournamentName||'';
+    }
+  }catch(e){
+    console.warn('Could not autoload the bracket:',e);
+  }
+  v12LoadHistory();
+  v12AutoSave();
+};
+
+/* Visual enhancements after every render. */
+function v12EnhanceRenderedUI(){
+  const out=document.getElementById('output');
+  if(!out)return;
+
+  out.querySelectorAll('.match').forEach(match=>{
+    const hasWinnerButton=[...match.querySelectorAll('button')].some(b=>
+      b.textContent.trim()==='Winner'
+    );
+    match.classList.toggle('ready',hasWinnerButton);
+  });
+
+  // Round progress.
+  out.querySelectorAll('.round').forEach(round=>{
+    const matches=[...round.querySelectorAll(':scope > .match')];
+    const done=matches.filter(m=>
+      m.querySelector('.note')?.textContent.includes('Winner:')
+    ).length;
+    const h=round.querySelector('h2');
+    if(h && matches.length){
+      const base=h.dataset.baseTitle || h.textContent.replace(/\s+—\s+\d+\s*\/\s*\d+$/,'');
+      h.dataset.baseTitle=base;
+      h.textContent=`${base} — ${done} / ${matches.length}`;
+    }
+  });
+
+  // Clickable player names -> history.
+  out.querySelectorAll('.player > span:first-child').forEach(span=>{
+    span.onclick=()=>showPlayerHistory(span.textContent.trim());
+    span.title='Click to view player history';
+  });
+
+  v12UpdateUndoButton();
+}
+
+/* Wrap the currently active render function so every existing render also
+   gets the new UI and autosaves. */
+const v12OriginalRender=render;
+render=function(){
+  v12OriginalRender();
+  v12EnhanceRenderedUI();
+  v12AutoSave();
+};
+
+/* Status bar: retain the existing message, then add tournament progress. */
+const v12OriginalUpdateStatus=updateStatus;
+updateStatus=function(){
+  v12OriginalUpdateStatus();
+  if(!tournament)return;
+  const total=(tournament.names||names||[]).length;
+  const played=[
+    ...(tournament.wb||[]).flat(),
+    ...(tournament.lb||[]).flat()
+  ].filter(m=>m&&m.winner).length;
+  const name=tournament.tournamentName||'Tournament';
+  const champion=tournament.champion?tournament.champion.name:'In progress';
+  document.getElementById('status').textContent=
+    `${name} • ${total} players • ${played} games completed • ${champion}`;
+};
+
+/* Scroll to the next ready game after a winner is selected. */
+const v12OriginalChooseWinner=window.chooseWinner;
+window.chooseWinner=v12Action(function(...args){
+  const result=v12OriginalChooseWinner.apply(this,args);
+  setTimeout(()=>{
+    const next=document.querySelector('#output .match.ready');
+    if(next) next.scrollIntoView({behavior:'smooth',block:'center'});
+  },80);
+  return result;
+});
+
+/* Modal helpers. */
+function openAppModal(html){
+  const modal=document.getElementById('appModal');
+  document.getElementById('modalContent').innerHTML=html;
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden','false');
+}
+function closeAppModal(){
+  const modal=document.getElementById('appModal');
+  modal.classList.remove('open');
+  modal.setAttribute('aria-hidden','true');
+}
+
+function allTournamentPlayers(){
+  const map=new Map();
+  const add=p=>{if(p&&p.id)map.set(p.id,p)};
+  (tournament?.wb||[]).flat().forEach(m=>(m.players||[]).forEach(add));
+  (tournament?.lb||[]).flat().forEach(m=>(m.players||[]).forEach(add));
+  (tournament?.scPool||[]).forEach(add);
+  (tournament?.scWildcards||[]).forEach(add);
+  (tournament?.scFinalists||[]).forEach(add);
+  (tournament?.final?.players||[]).forEach(add);
+  return [...map.values()];
+}
+
+function playerHistoryRows(p){
+  const rows=[];
+  const check=(groups,label)=>{
+    (groups||[]).forEach((round,ri)=>(round||[]).forEach((m,mi)=>{
+      if((m.players||[]).some(q=>q&&q.id===p.id)){
+        rows.push([`${label} ${ri+1}`,`Game ${mi+1}`,m.winner?.id===p.id?'Winner':(m.winner?'Lost':'In progress')]);
+      }
+    }));
+  };
+  check(tournament.wb,'Winners Round');
+  check(tournament.lb,'Second Chance Round');
+  if(tournament.final?.players?.some(q=>q&&q.id===p.id)){
+    rows.push(['Grand Final','',tournament.final.winner?.id===p.id?'Champion':(tournament.final.winner?'Finalist':'In progress')]);
+  }
+  return rows;
+}
+
+function showPlayerHistory(name){
+  if(!tournament)return;
+  const players=allTournamentPlayers().filter(p=>p.name===name);
+  if(!players.length)return;
+  let html=`<h2>Player History — ${esc(name)}</h2>`;
+  players.forEach((p,idx)=>{
+    if(players.length>1) html+=`<h3>Player ${idx+1}</h3>`;
+    const rows=playerHistoryRows(p);
+    html+=`<p><strong>Losses:</strong> ${p.losses||0}</p>`;
+    if(rows.length){
+      html+='<table><tr><th>Stage</th><th>Game</th><th>Result</th></tr>';
+      rows.forEach(r=>html+=`<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td></tr>`);
+      html+='</table>';
+    }else html+='<p>No games recorded yet.</p>';
+  });
+  openAppModal(html);
+}
+
+function showTournamentSummary(){
+  if(!tournament){alert('No tournament is currently running.');return}
+  const total=(tournament.names||[]).length;
+  const games=[...(tournament.wb||[]).flat(),...(tournament.lb||[])]
+    .filter(m=>m&&m.winner).length+(tournament.final?.winner?1:0);
+  const wbFinalists=(tournament.wb?.[1]||[]).map(m=>m.winner).filter(Boolean);
+  const scFinalists=tournament.scFinalists||[];
+  let html=`<h2>🏆 ${esc(tournament.tournamentName||'Tournament')} Summary</h2>`;
+  html+=`<p><strong>Players:</strong> ${total}<br><strong>Games completed:</strong> ${games}</p>`;
+  if(tournament.champion) html+=`<h3>Champion</h3><p>🏆 ${esc(tournament.champion.name)}</p>`;
+  html+='<h3>Grand Finalists</h3><ul>';
+  [...wbFinalists,...scFinalists].forEach(p=>html+=`<li>${esc(p.name)}</li>`);
+  html+='</ul>';
+  if(scFinalists.length) html+='<h3>Second Chance Finalists</h3><ul>'+scFinalists.map(p=>`<li>${esc(p.name)}</li>`).join('')+'</ul>';
+  html+=`<p><strong>Started:</strong> ${tournament.startedAt?new Date(tournament.startedAt).toLocaleString():'—'}</p>`;
+  openAppModal(html);
+}
+
+function toggleFullscreen(){
+  if(!document.fullscreenElement){
+    document.documentElement.requestFullscreen?.();
+  }else{
+    document.exitFullscreen?.();
+  }
+}
+function printBracket(){window.print()}
+
+/* Import history from an exported V12 save if present. */
+const v12ImportFunction=importBracketSave;
+importBracketSave=function(){
+  const input=document.createElement('input');
+  input.type='file';input.accept='.json,application/json,text/json';
+  input.onchange=async()=>{
+    const file=input.files&&input.files[0];if(!file)return;
+    try{
+      const state=JSON.parse(await file.text());
+      const before=v12Clone(v12CurrentState());
+      v12PushHistory(before);
+      applyBracketState(state);
+      if(Array.isArray(state.undoHistory)) v12History=state.undoHistory;
+      v12PersistHistory();
+      v12AutoSave();
+      alert('Bracket save imported successfully.');
+    }catch(e){alert('Could not import the bracket save: '+e.message)}
+  };
+  input.click();
+};
+
+/* Initial history/autosave state. */
+v12LoadHistory();
+v12UpdateUndoButton();
+</script>
+
+<script>
+/* Tournament-name persistence/display fix */
+(function(){
+  function currentTournamentName(){
+    const input=document.getElementById('tournamentName');
+    return (input?.value||'').trim() || 'Tournament';
+  }
+
+  function saveNameImmediately(){
+    try{
+      if(tournament){
+        tournament.tournamentName=currentTournamentName();
+      }
+      const state=getBracketState();
+      state.tournamentName=currentTournamentName();
+      if(state.tournament) state.tournament.tournamentName=currentTournamentName();
+      localStorage.setItem(LOCAL_BRACKET_KEY,JSON.stringify(state));
+      localStorage.setItem(LEGACY_BRACKET_KEY,JSON.stringify(state));
+      const el=document.getElementById('saveStatus');
+      if(el) el.textContent='✓ Saved '+new Date().toLocaleTimeString([],{
+        hour:'numeric',minute:'2-digit',second:'2-digit'
+      });
+    }catch(e){ console.warn('Could not save tournament name:',e); }
+  }
+
+  function restoreNameFromSave(){
+    try{
+      const raw=localStorage.getItem(LOCAL_BRACKET_KEY) ||
+                localStorage.getItem(LEGACY_BRACKET_KEY);
+      if(!raw)return;
+      const state=JSON.parse(raw);
+      const name=(state.tournamentName ||
+        state.tournament?.tournamentName || '').trim();
+      const input=document.getElementById('tournamentName');
+      if(input && name) input.value=name;
+      if(tournament && name) tournament.tournamentName=name;
+    }catch(e){ console.warn('Could not restore tournament name:',e); }
+  }
+
+  const input=document.getElementById('tournamentName');
+  if(input){
+    input.addEventListener('input',()=>{
+      if(tournament){
+        tournament.tournamentName=currentTournamentName();
+        render();
+      }else{
+        saveNameImmediately();
+      }
+    });
+    input.addEventListener('change',saveNameImmediately);
+  }
+
+  const oldGenerate=window._generate;
+  if(typeof oldGenerate==='function'){
+    window._generate=function(){
+      oldGenerate.apply(this,arguments);
+      if(tournament){
+        tournament.tournamentName=currentTournamentName();
+        tournament.startedAt=tournament.startedAt||new Date().toISOString();
+        render();
+        if(typeof v12AutoSave==='function') v12AutoSave();
+        else saveNameImmediately();
+      }
+    };
+  }
+
+  window.addEventListener('DOMContentLoaded',()=>{
+    restoreNameFromSave();
+    if(tournament){
+      const input=document.getElementById('tournamentName');
+      if(input && tournament.tournamentName) input.value=tournament.tournamentName;
+      render();
+    }
+  });
+})();
+</script>
+
+<style id="v12PlayerDropdownFix">
+/* Dark-theme player history modal */
+#appModal .modal-card{
+  background:var(--panel);
+  color:var(--text);
+  border:1px solid var(--line);
+}
+#appModal h2,#appModal h3{color:var(--text)}
+#appModal p,#appModal li{color:var(--text)}
+#appModal table{color:var(--text)}
+#appModal th,#appModal td{
+  color:var(--text);
+  border-bottom:1px solid var(--line);
+}
+#appModal th{background:var(--panel2)}
+#appModal .modal-actions{
+  border-top:1px solid var(--line);
+  padding-top:12px;
+}
+#appModal .modal-actions button{
+  color:var(--text);
+}
+
+/* Player selection for incomplete games */
+.add-player-panel{
+  display:flex;
+  gap:7px;
+  align-items:center;
+  padding:8px 9px;
+  background:var(--panel2);
+  border-top:1px solid var(--line);
+}
+.add-player-panel select{
+  flex:1;
+  min-width:0;
+  padding:7px 8px;
+  font-size:12px;
+  background:#111827;
+  color:var(--text);
+  border:1px solid var(--line);
+}
+.add-player-panel button{
+  padding:7px 9px;
+  font-size:12px;
+  white-space:nowrap;
+}
+.add-player-panel .no-players{
+  color:var(--muted);
+  font-size:11px;
+}
+</style>
+
+<script>
+/*
+  V12.2 player-list fix.
+
+  Empty slots can be filled from the CURRENT #names list, not from the
+  original tournament snapshot. This means changing the player list after
+  generating a bracket immediately changes the choices in the dropdown.
+
+  Existing players are never duplicated: a player is only offered if their
+  pN id is not currently present in any bracket/final match.
+*/
+
+function currentPlayerList(){
+  return [...document.querySelectorAll('#names input')]
+    .map((input,i)=>({
+      id:'p'+i,
+      name:(input.value||input.placeholder||`Player ${i+1}`).trim() || `Player ${i+1}`
+    }));
+}
+
+function tournamentPlayerById(id){
+  if(!tournament || !id) return null;
+  const seen=new Set();
+
+  function scanPlayer(p){
+    if(!p || !p.id || seen.has(p.id)) return null;
+    seen.add(p.id);
+    return p.id===id ? p : null;
+  }
+
+  for(const round of (tournament.wb||[])){
+    for(const m of (round||[])){
+      for(const p of (m.players||[])){
+        const found=scanPlayer(p); if(found)return found;
+      }
+      const found=scanPlayer(m.winner); if(found)return found;
+    }
+  }
+  for(const round of (tournament.lb||[])){
+    for(const m of (round||[])){
+      for(const p of (m.players||[])){
+        const found=scanPlayer(p); if(found)return found;
+      }
+      const found=scanPlayer(m.winner); if(found)return found;
+    }
+  }
+
+  for(const list of [
+    tournament.scPool,
+    tournament.scWildcards,
+    tournament.scFinalists,
+    tournament.unassigned,
+    tournament.final?.players
+  ]){
+    for(const p of (list||[])){
+      const found=scanPlayer(p); if(found)return found;
+    }
+  }
+
+  return null;
+}
+
+function idsUsedInTournament(excludeType,excludeRound,excludeMatch){
+  const used=new Set();
+
+  const addMatch=(m)=>{
+    if(!m)return;
+    (m.players||[]).forEach(p=>{if(p&&p.id)used.add(p.id)});
+  };
+
+  (tournament?.wb||[]).forEach((round,r)=>{
+    (round||[]).forEach((m,mi)=>{
+      if(excludeType==='wb' && r===excludeRound && mi===excludeMatch)return;
+      addMatch(m);
+    });
+  });
+
+  (tournament?.lb||[]).forEach((round,r)=>{
+    (round||[]).forEach((m,mi)=>{
+      if(excludeType==='lb' && r===excludeRound && mi===excludeMatch)return;
+      addMatch(m);
+    });
+  });
+
+  (tournament?.final?.players||[]).forEach(p=>{
+    if(p&&p.id)used.add(p.id);
+  });
+
+  return used;
+}
+
+function currentListCandidates(type,r,mi){
+  /*
+    The current player/deck list is authoritative. Show ALL current entries,
+    including decks that already exist elsewhere in the bracket.
+  */
+  return currentPlayerList();
+}
+
+function addCurrentListPlayer(type,r,mi){
+  const arr=type==='wb'?tournament.wb[r]:tournament.lb[r];
+  const match=arr&&arr[mi];
+
+  if(!match || match.winner || match.players.length>=4)return;
+
+  const candidates=currentListCandidates(type,r,mi);
+  if(!candidates.length){
+    alert('There are no unused players in the current player list available for this slot.');
+    return;
+  }
+
+  const select=document.getElementById(`playerSelect_${type}_${r}_${mi}`);
+  if(!select || !select.value)return;
+
+  const selected=currentPlayerList().find(p=>p.id===select.value);
+  if(!selected)return;
+
+  /* Reuse the existing tournament player object when possible.
+     No cross-match duplicate safety check: the current player/deck list is
+     authoritative and may be used to update any bracket slot. */
+  let player=tournamentPlayerById(selected.id);
+
+  if(player){
+    /*
+      This is deliberately the same player/deck identity, but its current
+      list name is authoritative. This lets an updated deck name be used.
+    */
+    player.name=selected.name;
+  }else{
+    player={id:selected.id,name:selected.name,losses:0};
+  }
+
+  match.players.push(player);
+
+  /* Remove this id from the unassigned pool if it was there. */
+  tournament.unassigned=(tournament.unassigned||[])
+    .filter(p=>!p || p.id!==player.id);
+
+  render();
+}
+
+function renderMatch(m,type,r,mi){
+  let s=`<div class="match"><div class="match-title">${type==='wb'?'Match':'Loss Match'} ${mi+1}</div>`;
+  const players=m.players||[];
+
+  for(let i=0;i<players.length;i++){
+    const p=players[i];
+    if(!p)continue;
+
+    let cls=m.winner===p?'winner':(m.winner&&m.winner!==p?'loser':'');
+    let actions='';
+
+    if(!m.winner){
+      if(players.length===1){
+        actions+=`<button onclick="advanceSoloPlayer('${type}',${r},${mi})">Advance</button>`;
+      }else if(
+        players.length===4 ||
+        (type==='lb' && players.length>=2) ||
+        (type==='wb' && r===0 && players.length>=2)
+      ){
+        actions+=`<button onclick="chooseWinner('${type}',${r},${mi},${i})">Winner</button>`;
+      }
+    }
+
+    actions+=`<button class="remove-player" title="Remove player" aria-label="Remove player" onclick="removePlayerFromMatch('${type}',${r},${mi},${i})">×</button>`;
+
+    s+=`<div class="player ${cls}">
+      <span>${esc(p.name)}</span>
+      <span class="player-actions">${actions}</span>
+    </div>`;
+  }
+
+  if(!m.winner && players.length<4){
+    const candidates=currentListCandidates(type,r,mi);
+
+    s+=`<div class="add-player-panel">`;
+
+    if(candidates.length){
+      s+=`<select id="playerSelect_${type}_${r}_${mi}" aria-label="Select player to add">
+        <option value="">Select any player/deck from current list...</option>`;
+
+      candidates.forEach(p=>{
+        s+=`<option value="${esc(p.id)}">${esc(p.name)}</option>`;
+      });
+
+      s+=`</select>
+        <button type="button" onclick="addCurrentListPlayer('${type}',${r},${mi})">Add</button>`;
+    }else{
+      s+=`<span class="no-players">No players available in the current player list.</span>`;
+    }
+
+    s+=`</div>`;
+  }
+
+  if(m.winner){
+    s+=`<div class="note">Winner: ${esc(m.winner.name)}</div>`;
+
+    if(type==='lb' && r===1 && !(tournament.lbMovedToWinners||{})[m.winner.id]){
+      s+=`<div class="note">Losers Round 2 finalist.</div>`;
+    }else if(type==='lb' && r===1 && (tournament.lbMovedToWinners||{})[m.winner.id]){
+      s+=`<div class="note">Winner moved to Winners Bracket.</div>`;
+    }
+  }else if(players.length<4 && type!=='lb'){
+    s+=`<div class="note">This match needs ${4-players.length} more player${4-players.length===1?'':'s'}.</div>`;
+  }
+
+  s+='</div>';
+  return s;
+}</script>
+
+</body>
+</html>
